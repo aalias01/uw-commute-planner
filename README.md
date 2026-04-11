@@ -2,7 +2,7 @@
 
 A real-time commute assistant that tells you when to leave Odegaard Library to catch your connection home — built for my daily commute from UW to Shoreline.
 
-**Live demo:** [your-app.vercel.app](https://your-app.vercel.app) ← update after deploying
+**Live demo:** [uw-commute-planner.vercel.app](https://uw-commute-planner.vercel.app)
 
 ---
 
