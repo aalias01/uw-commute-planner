@@ -41,40 +41,63 @@ BUS_OPTIONS = {
         "stop_id":       "1_10914",
         "stop_name":     "15th Ave NE & NE Campus Pkwy",
         "route_id":      "1_100224",
-        "walk_to_stop":  4,
-        "ride_to_udist": 5,
-        "buffer":        3,  # arrive at stop this many mins before bus departs
+        "walk_to_stop":  WALK_TO_44_372,
+        "ride_to_udist": RIDE_44_372_TO_UDIST,
+        "buffer":        BUFFER_44_372,
     },
     "bus_372": {
         "label":         "Bus 372",
         "stop_id":       "1_10914",
         "stop_name":     "15th Ave NE & NE Campus Pkwy",
         "route_id":      "1_100214",
-        "walk_to_stop":  4,
-        "ride_to_udist": 5,
-        "buffer":        3,
+        "walk_to_stop":  WALK_TO_44_372,
+        "ride_to_udist": RIDE_44_372_TO_UDIST,
+        "buffer":        BUFFER_44_372,
     },
     "bus_45": {
         "label":         "Bus 45",
         "stop_id":       "1_75405",
         "stop_name":     "W Stevens Way NE & George Washington Ln",
         "route_id":      "1_100225",
-        "walk_to_stop":  7,
-        "ride_to_udist": 4,
-        "buffer":        5,
+        "walk_to_stop":  WALK_TO_45,
+        "ride_to_udist": RIDE_45_TO_UDIST,
+        "buffer":        BUFFER_45,
     },
 }
 
-# Timing constants (minutes)
-WALK_ODEGAARD_TO_UDIST  = 14   # Mode 1: walk from Odegaard to U-District Station
-WAIT_AT_UDIST           = 2    # time needed at station before boarding 1 Line
-LIGHT_RAIL_TO_SHORELINE = 12   # 1 Line: U-District → Shoreline South/148th
-BUFFER_BEFORE_333       = 5    # arrive at Shoreline South this many mins before 333
+# ─── TIMING SETTINGS ─────────────────────────────────────────────────────────
+# All values in minutes. These are the only values you need to update
+# if your walk times or route timings change.
+
+# Mode 1: walk from Odegaard to U-District Station
+WALK_ODEGAARD_TO_UDIST  = 14
+
+# Mode 2: walk from Odegaard to each bus stop
+WALK_TO_44_372          = 4    # 15th Ave NE & NE Campus Pkwy
+WALK_TO_45              = 7    # W Stevens Way NE & George Washington Ln
+
+# Mode 2: ride time from each bus stop to U-District Station
+RIDE_44_372_TO_UDIST    = 5
+RIDE_45_TO_UDIST        = 4
+
+# Mode 2: arrive at stop this many mins before bus departs
+BUFFER_44_372           = 3
+BUFFER_45               = 5
+
+# 1 Line: travel time U-District Station → Shoreline South/148th
+LIGHT_RAIL_TO_SHORELINE = 12
+
+# Minimum mins to arrive at Shoreline South before Bus 333 departs
+BUFFER_BEFORE_333       = 5
+
+# Mins needed at U-District Station before boarding 1 Line
+WAIT_AT_UDIST           = 2
+# ──────────────────────────────────────────────────────────────────────────────
 
 MODES = {
     1: {
         "name":        "Walk",
-        "description": "14 min walk from Odegaard → U-District Station → 1 Line → Bus 333",
+        "description": f"{WALK_ODEGAARD_TO_UDIST} min walk from Odegaard → U-District Station → 1 Line → Bus 333",
         "bus_options": [],
         "use_2_line":  False,  # set True when Line 2 construction ends
     },
@@ -186,11 +209,14 @@ async def find_connections(mode: int, now: Optional[datetime] = None) -> dict:
                     "mode":            1,
                     "steps": [
                         {"icon": "walk", "label": "Walk to U-District Station",
-                         "depart": fmt(leave),         "arrive": fmt(arrive_udist)},
+                         "depart": fmt(leave), "arrive": fmt(arrive_udist),
+                         "wait_after": int((train_departs - arrive_udist).total_seconds() / 60)},
                         {"icon": "rail", "label": "1 Line → Lynnwood",
-                         "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline)},
+                         "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
+                         "wait_after": int((b333_departs - arrive_shoreline).total_seconds() / 60)},
                         {"icon": "bus",  "label": "Bus 333 → Home",
-                         "depart": fmt(b333_departs),  "arrive": None},
+                         "depart": fmt(b333_departs), "arrive": None,
+                         "wait_after": None},
                     ]
                 })
 
@@ -215,9 +241,11 @@ async def find_connections(mode: int, now: Optional[datetime] = None) -> dict:
                     "mode":           2,
                     "steps": [
                         {"icon": "bus",  "label": f"{pick['label']} from {pick['stop_name']}",
-                         "depart": fmt(pick["bus_departs"]), "arrive": fmt(pick["arrive_udist"])},
+                         "depart": fmt(pick["bus_departs"]), "arrive": fmt(pick["arrive_udist"]),
+                         "wait_after": int((train_departs - pick["arrive_udist"]).total_seconds() / 60)},
                         {"icon": "rail", "label": "1 Line → Lynnwood",
-                         "depart": fmt(train_departs),       "arrive": fmt(arrive_shoreline)},
+                         "depart": fmt(train_departs),       "arrive": fmt(arrive_shoreline),
+                         "wait_after": int((b333_departs - arrive_shoreline).total_seconds() / 60)},
                         {"icon": "bus",  "label": "Bus 333 → Home",
                          "depart": fmt(b333_departs),        "arrive": None},
                     ]
