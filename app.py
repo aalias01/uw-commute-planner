@@ -3,6 +3,9 @@ from fastapi.responses import HTMLResponse
 import httpx
 import os
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+SEATTLE = ZoneInfo("America/Los_Angeles")
 from typing import Optional
 import uvicorn
 
@@ -103,7 +106,7 @@ def depart_time(a: dict) -> datetime:
     predicted = a.get("predictedDepartureTime", 0)
     scheduled = a.get("scheduledDepartureTime", 0)
     ts = predicted if predicted > 0 else scheduled
-    return datetime.fromtimestamp(ts / 1000)
+    return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
 
 
 def fmt(dt: datetime) -> str:
@@ -138,7 +141,7 @@ async def best_bus(bus_key: str, must_arrive_udist_by: datetime) -> Optional[dic
 
 async def find_connections(mode: int, now: Optional[datetime] = None) -> dict:
     if now is None:
-        now = datetime.now()
+        now = datetime.now(SEATTLE)
 
     cfg = MODES.get(mode)
     if not cfg:
