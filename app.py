@@ -32,9 +32,36 @@ ROUTES = {
     "bus_372": "1_100214",
 }
 
+# ─── TIMING SETTINGS ─────────────────────────────────────────────────────────
+# All values in minutes. These are the only values you need to update
+# if your walk times or route timings change.
+
+# Mode 1: walk from Odegaard to U-District Station
+WALK_ODEGAARD_TO_UDIST  = 14
+
+# Mode 2: walk from Odegaard to each bus stop
+WALK_TO_44_372          = 4    # 15th Ave NE & NE Campus Pkwy
+WALK_TO_45              = 7    # W Stevens Way NE & George Washington Ln
+
+# Mode 2: ride time from each bus stop to U-District Station
+RIDE_44_372_TO_UDIST    = 5
+RIDE_45_TO_UDIST        = 4
+
+# Mode 2: arrive at stop this many mins before bus departs
+BUFFER_44_372           = 3
+BUFFER_45               = 5
+
+# 1 Line: travel time U-District Station → Shoreline South/148th
+LIGHT_RAIL_TO_SHORELINE = 12
+
+# Minimum mins to arrive at Shoreline South before Bus 333 departs
+BUFFER_BEFORE_333       = 5
+
+# Mins needed at U-District Station before boarding 1 Line
+WAIT_AT_UDIST           = 2
+# ──────────────────────────────────────────────────────────────────────────────
+
 # Bus stops near Odegaard for Mode 2
-# walk_to_stop  : walk time from Odegaard to the bus stop (minutes)
-# ride_to_udist : ride time from stop to U-District Station (minutes)
 BUS_OPTIONS = {
     "bus_44": {
         "label":         "Bus 44",
@@ -64,35 +91,6 @@ BUS_OPTIONS = {
         "buffer":        BUFFER_45,
     },
 }
-
-# ─── TIMING SETTINGS ─────────────────────────────────────────────────────────
-# All values in minutes. These are the only values you need to update
-# if your walk times or route timings change.
-
-# Mode 1: walk from Odegaard to U-District Station
-WALK_ODEGAARD_TO_UDIST  = 14
-
-# Mode 2: walk from Odegaard to each bus stop
-WALK_TO_44_372          = 4    # 15th Ave NE & NE Campus Pkwy
-WALK_TO_45              = 7    # W Stevens Way NE & George Washington Ln
-
-# Mode 2: ride time from each bus stop to U-District Station
-RIDE_44_372_TO_UDIST    = 5
-RIDE_45_TO_UDIST        = 4
-
-# Mode 2: arrive at stop this many mins before bus departs
-BUFFER_44_372           = 3
-BUFFER_45               = 5
-
-# 1 Line: travel time U-District Station → Shoreline South/148th
-LIGHT_RAIL_TO_SHORELINE = 12
-
-# Minimum mins to arrive at Shoreline South before Bus 333 departs
-BUFFER_BEFORE_333       = 5
-
-# Mins needed at U-District Station before boarding 1 Line
-WAIT_AT_UDIST           = 2
-# ──────────────────────────────────────────────────────────────────────────────
 
 MODES = {
     1: {
