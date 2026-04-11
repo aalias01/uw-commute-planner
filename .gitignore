@@ -6,6 +6,7 @@ __pycache__/
 *.pdf
 *.docx
 *.csv
+docs_local/
 
 # Environments and Secrets
 .env
