@@ -1,0 +1,19 @@
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Documents and reports
+*.pdf
+*.docx
+*.csv
+
+# Environments and Secrets
+.env
+.venv/
+env/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
