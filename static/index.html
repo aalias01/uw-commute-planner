@@ -308,6 +308,11 @@
 
   <!-- ── PLANNER PAGE ── -->
   <div class="page visible" id="page-planner">
+    <div class="choice-row">
+      <span class="choice-label">Starting from:</span>
+      <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
+      <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
+    </div>
     <div class="tabs" id="tabs"></div>
     <div class="idle-row" id="stay-row">
       <span class="idle-label">Leave within:</span>
@@ -317,9 +322,10 @@
       <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
     </div>
     <div class="choice-row">
-      <span class="choice-label">Final bus:</span>
-      <button class="idle-chip active" id="final-bus-333" onclick="setFinalBus('333', this)">333</button>
-      <button class="idle-chip" id="final-bus-348" onclick="setFinalBus('348', this)">348</button>
+      <span class="choice-label">Destination:</span>
+      <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">333</button>
+      <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">348</button>
+      <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
     </div>
     <div class="toggle-panel">
       <div class="toggle-row">
@@ -357,9 +363,10 @@
   <!-- ── TIMINGS PAGE ── -->
   <div class="page" id="page-timings">
     <div class="choice-row" style="margin-bottom: 14px;">
-      <span class="choice-label">Display final bus:</span>
-      <button class="idle-chip active" id="timings-final-bus-333" onclick="setTimingsFinalBus('333', this)">333</button>
-      <button class="idle-chip" id="timings-final-bus-348" onclick="setTimingsFinalBus('348', this)">348</button>
+      <span class="choice-label">Display destination:</span>
+      <button class="idle-chip active" id="timings-destination-333" onclick="setTimingsDestination('333', this)">333</button>
+      <button class="idle-chip" id="timings-destination-348" onclick="setTimingsDestination('348', this)">348</button>
+      <button class="idle-chip" id="timings-destination-train-north" onclick="setTimingsDestination('train_north', this)">Train only</button>
     </div>
 
     <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px; margin-bottom:16px;">
@@ -402,7 +409,7 @@
       <div class="t-title">Note</div>
       <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px;">
         Walk times include buffer so you don't miss a connection.<br>
-        The final segment reflects the currently selected final bus branch and shows only the station-to-bus walk time.<br>
+        The final segment reflects the currently selected destination and shows either station-to-bus walk time or direct train arrival.<br>
         Live transfer cushion is shown on Planner cards instead of being built into these timing totals.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
@@ -414,8 +421,9 @@
 <script>
   let mode = 2;
   let includeLine2 = true;
-  let finalBus = '333';
-  let timingsFinalBus = '333';
+  let destination = '333';
+  let timingsDestination = '333';
+  let startPoint = 'odegaard';
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -454,38 +462,66 @@
 
   const ICONS = { walk: '🚶', bus: '🚌', rail: '🚇' };
   const ICON_CLASS = { walk: 'icon-walk', bus: 'icon-bus', rail: 'icon-rail' };
-  const FINAL_BUS_LABELS = { '333': 'Bus 333', '348': 'Bus 348' };
-  const MODE_DESCRIPTIONS = {
-    1: {
-      333: '14 min walk from Odegaard → U-District Station platform → 1 Line → Bus 333',
-      348: '14 min walk from Odegaard → U-District Station platform → 1 Line → Bus 348',
-    },
-    2: {
-      333: 'Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → 1 Line → Bus 333',
-      348: 'Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → 1 Line → Bus 348',
-    },
+  const DESTINATION_LABELS = {
+    '333': 'Bus 333',
+    '348': 'Bus 348',
+    'train_north': 'Shoreline North/185th',
   };
+  const LINE_LABEL = () => includeLine2 ? '1 Line / 2 Line' : '1 Line';
 
   function updatePlannerDescription() {
-    document.getElementById('desc').textContent = MODE_DESCRIPTIONS[mode]?.[finalBus] || '';
+    const destinationText = destination === 'train_north' ? 'Shoreline North/185th' : `Bus ${destination}`;
+    const desc = startPoint === 'u_district_station'
+      ? `U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
+      : mode === 1
+        ? `14 min walk from Odegaard → U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
+        : `Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → ${LINE_LABEL()} → ${destinationText}`;
+    document.getElementById('desc').textContent = desc;
   }
 
-  function updateTimingsFinalBusButtons() {
-    document.getElementById('timings-final-bus-333').classList.toggle('active', timingsFinalBus === '333');
-    document.getElementById('timings-final-bus-348').classList.toggle('active', timingsFinalBus === '348');
+  function updateStartPointButtons() {
+    document.getElementById('start-odegaard').classList.toggle('active', startPoint === 'odegaard');
+    document.getElementById('start-u-district-station').classList.toggle('active', startPoint === 'u_district_station');
   }
 
-  function setTimingsFinalBus(value, btn) {
-    timingsFinalBus = value;
-    document.querySelectorAll('#page-timings .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+  function updateModeVisibility() {
+    const tabs = document.getElementById('tabs');
+    tabs.style.display = startPoint === 'u_district_station' ? 'none' : 'flex';
+  }
+
+  function setStartPoint(value, btn) {
+    startPoint = value;
+    updateStartPointButtons();
+    updateModeVisibility();
+    updatePlannerDescription();
+    markPlannerDirty();
+  }
+
+  function updateDestinationButtons() {
+    document.getElementById('destination-333').classList.toggle('active', destination === '333');
+    document.getElementById('destination-348').classList.toggle('active', destination === '348');
+    document.getElementById('destination-train-north').classList.toggle('active', destination === 'train_north');
+  }
+
+  function updateTimingsDestinationButtons() {
+    document.getElementById('timings-destination-333').classList.toggle('active', timingsDestination === '333');
+    document.getElementById('timings-destination-348').classList.toggle('active', timingsDestination === '348');
+    document.getElementById('timings-destination-train-north').classList.toggle('active', timingsDestination === 'train_north');
+  }
+
+  function setTimingsDestination(value, btn) {
+    timingsDestination = value;
+    updateTimingsDestinationButtons();
     initTimings();
   }
 
   function formatDefaultSetupSummary(setup) {
-    const modeLabel = setup.mode === 1 ? 'Walk mode' : 'Bus mode';
+    const modeLabel = setup.startPoint === 'u_district_station'
+      ? 'Start at U-District Station'
+      : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
     const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
-    return `${modeLabel} · Leave within ${setup.stayWindow} min · Bus ${setup.finalBus} · ${line2Label}`;
+    const destinationLabel = setup.destination === 'train_north' ? 'Train only' : `Bus ${setup.destination}`;
+    return `${modeLabel} · Leave within ${setup.stayWindow} min · ${destinationLabel} · ${line2Label}`;
   }
 
   function readSavedDefaultSetup() {
@@ -495,9 +531,12 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
       if (![1, 2].includes(parsed.mode)) return null;
+      if (!['odegaard', 'u_district_station'].includes(parsed.startPoint || 'odegaard')) return null;
       if (![15, 30, 45, 60].includes(parsed.stayWindow)) return null;
-      if (!['333', '348'].includes(parsed.finalBus)) return null;
+      if (!['333', '348', 'train_north'].includes(parsed.destination || parsed.finalBus || '333')) return null;
       if (typeof parsed.includeLine2 !== 'boolean') return null;
+      parsed.startPoint = parsed.startPoint || 'odegaard';
+      parsed.destination = parsed.destination || parsed.finalBus || '333';
       return parsed;
     } catch {
       return null;
@@ -525,7 +564,7 @@
   }
 
   function saveCurrentAsDefault() {
-    const setup = { mode, stayWindow, finalBus, includeLine2 };
+    const setup = { mode, stayWindow, destination, includeLine2, startPoint };
     localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
     renderSavedDefaultStatus();
   }
@@ -538,14 +577,15 @@
   function applySavedDefaultSetup() {
     const saved = readSavedDefaultSetup();
     if (!saved) {
-      timingsFinalBus = finalBus;
+      timingsDestination = destination;
       return;
     }
     mode = saved.mode;
     stayWindow = saved.stayWindow;
-    finalBus = saved.finalBus;
+    destination = saved.destination;
     includeLine2 = saved.includeLine2;
-    timingsFinalBus = saved.finalBus;
+    startPoint = saved.startPoint;
+    timingsDestination = saved.destination;
   }
 
   function getReliabilityMeta(connection) {
@@ -594,9 +634,9 @@
           <div class="card-label">${cardLabel}</div>
           ${reliability ? `<span class="reliability-pill ${reliability.cls}">${reliability.label}</span>` : ''}
         </div>
-        <div class="leave-lbl">Leave Odegaard</div>
+        <div class="leave-lbl">${c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard')}</div>
         <div class="leave-time">${c.leave_odegaard}${badge}</div>
-        <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${FINAL_BUS_LABELS[finalBus]}</span></div>
+        <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${c.destination_label || DESTINATION_LABELS[destination]}</span></div>
         <div class="card-report-time">Report time: ${currentReportTimeLabel}</div>
         ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
         ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
@@ -628,24 +668,19 @@
   function setLine2Preference(enabled) {
     includeLine2 = enabled;
     updateLine2Status();
+    updatePlannerDescription();
     initTimings();
     markPlannerDirty();
   }
 
-  function updateFinalBusButtons() {
-    document.getElementById('final-bus-333').classList.toggle('active', finalBus === '333');
-    document.getElementById('final-bus-348').classList.toggle('active', finalBus === '348');
-  }
-
-  function loadFinalBusPreference() {
-    updateFinalBusButtons();
+  function loadDestinationPreference() {
+    updateDestinationButtons();
     updatePlannerDescription();
   }
 
-  function setFinalBus(value, btn) {
-    finalBus = value;
-    document.querySelectorAll('#page-planner .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+  function setDestination(value, btn) {
+    destination = value;
+    updateDestinationButtons();
     updatePlannerDescription();
     markPlannerDirty();
   }
@@ -754,7 +789,8 @@
       const savedAt = new Date(now);
       const expiresAt = now + SNAPSHOT_TTL_MS;
       const connection = currentConnections[index];
-      const title = `${connection.leave_odegaard} · ${mode === 1 ? 'Walk' : 'Bus'} mode`;
+      const modeLabel = startPoint === 'u_district_station' ? 'U-District Station' : (mode === 1 ? 'Walk' : 'Bus');
+      const title = `${connection.leave_odegaard} · ${modeLabel}`;
       const filename = `commute-plan-${savedAt.toISOString().replace(/[:.]/g, '-')}.jpg`;
 
       const item = {
@@ -803,7 +839,7 @@
     }
 
     try {
-      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}&final_bus=${finalBus}`).then(r => r.json());
+      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`).then(r => r.json());
       if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
         out.innerHTML = '<div class="warn">⏱ Rate limited. Try Refresh again in a few seconds.</div>';
@@ -843,11 +879,13 @@
 
   applySavedDefaultSetup();
   loadLine2Preference();
-  loadFinalBusPreference();
+  loadDestinationPreference();
+  updateStartPointButtons();
+  updateModeVisibility();
   updateStayButtons();
   renderSavedDefaultStatus();
   renderSnapshots();
-  updateTimingsFinalBusButtons();
+  updateTimingsDestinationButtons();
   initModes().then(() => {
     updatePlannerDescription();
     markPlannerDirty('Press Refresh to load latest departures.');
@@ -888,9 +926,9 @@
 
   async function initTimings() {
     try {
-      const d = await fetch(`/api/timings?final_bus=${timingsFinalBus}&include_line2=${includeLine2}`).then(r => r.json());
+      const d = await fetch(`/api/timings?destination=${timingsDestination}&include_line2=${includeLine2}`).then(r => r.json());
       document.getElementById('timings-mode1-name').textContent =
-        `Odegaard → U-District Station → ${d.line_label} → ${d.final_bus_label}`;
+        `Odegaard → U-District Station → ${d.line_label} → ${d.is_train_only ? d.final_station_label : d.final_label}`;
       buildTimeline('tl-mode1', 'lg-mode1', 'tot-mode1', d.mode1);
       buildTimeline('tl-44',    'lg-44',    'tot-44',    d.bus_44_372);
       buildTimeline('tl-45',    'lg-45',    'tot-45',    d.bus_45);
