@@ -863,15 +863,16 @@
   }
 
   function formatDefaultSetupSummary(setup) {
+    const startLabel = setup.startPoint === 'u_district_station' ? 'U-District Station' : 'Odegaard';
     const modeLabel = setup.startPoint === 'u_district_station'
-      ? 'Start at U-District Station'
+      ? 'Train boarding'
       : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
     const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
     const destinationLabel = setup.destination === 'train_north' ? 'Train only' : `Bus ${setup.destination}`;
     const windowLabel = setup.windowMode === 'after'
       ? `Leave after ${setup.stayWindow} min`
       : `Leave within ${setup.stayWindow} min`;
-    return `${modeLabel} · ${windowLabel} · ${destinationLabel} · ${line2Label}`;
+    return `${startLabel} · ${modeLabel} · ${windowLabel} · ${destinationLabel} · ${line2Label}`;
   }
 
   function readSavedDefaultSetup() {
