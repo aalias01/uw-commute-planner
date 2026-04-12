@@ -719,7 +719,7 @@
     </div>
 
     <div class="timings-note">
-      Base route timing assumptions — physical legs only. These do not include live transfer wait or cushion shown on Planner cards.
+      Base route timing assumptions — physical legs only. These do not include live transfer wait or buffer shown on Planner cards.
     </div>
 
     <div class="t-section">
@@ -755,7 +755,7 @@
       <div class="t-title">Notes</div>
       <div class="timings-note" style="margin-bottom:0">
         Walk times include buffer to avoid missed connections.<br>
-        Live transfer cushion is shown on Planner cards, not here.<br>
+        Live transfer buffer is shown on Planner cards, not here.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
     </div>
@@ -949,8 +949,8 @@
     const cushion     = c.transfer_cushion_mins ?? null;
     const cushionClass = cushion === null ? '' : (cushion <= 0 ? ' warning' : cushion <= 2 ? ' caution' : '');
     const cushionText  = cushion === null ? '' : cushion <= 0
-      ? `⚠️ No cushion at ${c.transfer_station_label} — tight transfer`
-      : `${cushion} min cushion at ${c.transfer_station_label} after ${c.transfer_walk_mins} min walk`;
+      ? `⚠️ No buffer at ${c.transfer_station_label} — tight transfer`
+      : `${cushion} min buffer at ${c.transfer_station_label} after ${c.transfer_walk_mins} min walk`;
     const cardLabel   = first ? 'Best option' : 'Backup option';
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
@@ -1235,7 +1235,7 @@
       return `<div class="t-leg"><div class="t-dot" style="background:${st.dot}"></div><div class="t-leg-label">${l.label}</div><div class="t-leg-val">${l.min} min</div></div>`;
     }).join('');
     document.getElementById(totId).innerHTML =
-      `Base time: <strong>${total} min</strong> (route timing only; live cushion and extra waits not included)`;
+      `Base time: <strong>${total} min</strong> (route timing only; live buffer and extra waits not included)`;
   }
   async function initTimings() {
     try {
