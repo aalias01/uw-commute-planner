@@ -7,350 +7,487 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
+    :root {
+      --green:        #1a6b4a;
+      --green-light:  #e8f4ed;
+      --green-mid:    #b7dec7;
+      --gray-bg:      #f0f2f0;
+      --gray-border:  #e0e4e0;
+      --gray-panel:   #f7f9f7;
+      --ink:          #111;
+      --ink-2:        #444;
+      --muted:        #777;
+      --muted-light:  #aaa;
+      --white:        #ffffff;
+      --red:          #c0392b;
+      --amber:        #a06000;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f5f5f5; color: #111;
-      min-height: 100vh; padding: 24px 16px;
-      max-width: 560px; margin: 0 auto;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--gray-bg);
+      color: var(--ink);
+      min-height: 100vh;
+      padding: 0 0 40px;
+      max-width: 540px;
+      margin: 0 auto;
     }
 
-    h1   { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
-
-    /* nav */
-    .nav { display: flex; gap: 6px; margin-bottom: 16px; }
+    /* ── HEADER ── */
+    .app-header {
+      background: var(--white);
+      border-bottom: 1px solid var(--gray-border);
+      padding: 14px 18px 0;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .app-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+    .app-title span { color: var(--green); }
+    .nav {
+      display: flex;
+      gap: 0;
+      border-bottom: none;
+    }
     .nav-btn {
-      padding: 6px 16px; border-radius: 999px; font-size: 13px;
-      border: 1.5px solid #ccc; background: white; cursor: pointer; transition: all 0.15s;
+      padding: 8px 20px;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-bottom: 2.5px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+      letter-spacing: -0.01em;
     }
-    .nav-btn.active { background: #1a6b4a; color: white; border-color: #1a6b4a; }
-    .nav-btn:hover:not(.active) { border-color: #888; }
+    .nav-btn.active {
+      color: var(--green);
+      border-bottom-color: var(--green);
+    }
+    .nav-btn:hover:not(.active) { color: var(--ink); }
 
-    /* pages */
-    .page { display: none; }
+    /* ── PAGES ── */
+    .page { display: none; padding: 16px; }
     .page.visible { display: block; }
 
-    /* ── PLANNER PAGE ── */
-    .planner-controls {
-      background: linear-gradient(180deg, #fbfbfb 0%, #f3f5f3 100%);
-      border: 1px solid #e0e5e1;
-      border-radius: 18px;
-      padding: 16px 16px 12px;
-      margin-bottom: 16px;
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-    }
-    .control-group {
-      margin-bottom: 14px;
-    }
-    .control-group:last-child {
-      margin-bottom: 0;
-    }
-    .group-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #7b857d;
-      margin-bottom: 8px;
-    }
-    .tabs { display: flex; gap: 8px; margin-bottom: 0; }
-    .tab {
-      padding: 7px 18px; border-radius: 999px;
-      border: 1.5px solid #ccc; background: white;
-      font-size: 13px; cursor: pointer; transition: all 0.15s;
-    }
-    .tab.active  { background: #1a6b4a; color: white; border-color: #1a6b4a; }
-    .tab:hover:not(.active) { border-color: #888; }
-    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px; }
-    .desc    { font-size: 12px; color: #666; flex: 1; line-height: 1.4; }
-    .refresh { font-size: 12px; padding: 5px 14px; border-radius: 999px; border: 1px solid #ccc; background: white; cursor: pointer; white-space: nowrap; }
-    .refresh:hover { border-color: #888; }
-    .refresh:disabled { opacity: 0.65; cursor: default; }
-    .report-time { font-size: 12px; color: #888; margin-bottom: 16px; }
-    .card { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 14px 16px; margin-bottom: 10px; }
-    .card.top { border-color: #1a6b4a; border-width: 2px; }
-    .card-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-    .card-btn {
-      font-size: 12px;
-      padding: 6px 12px;
+    /* ── CHIPS (shared) ── */
+    .chip {
+      padding: 6px 14px;
       border-radius: 999px;
-      border: 1px solid #ccc;
-      background: white;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1.5px solid var(--gray-border);
+      background: var(--white);
+      color: var(--ink-2);
       cursor: pointer;
       transition: all 0.15s;
+      white-space: nowrap;
     }
-    .card-btn:hover:not(:disabled) { border-color: #888; }
-    .card-btn:disabled { opacity: 0.65; cursor: default; }
-    .leave-lbl  { font-size: 10px; font-weight: 600; color: #888; letter-spacing: 0.06em; text-transform: uppercase; }
-    .leave-time { font-size: 28px; font-weight: 700; color: #111; }
-    .badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 500; margin-left: 8px; }
-    .badge-live  { background: #e1f5ee; color: #085041; }
-    .badge-sched { background: #f0f0f0; color: #888; }
-    .countdown { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1a6b4a; }
-    .countdown.now { color: #c0392b; }
-    .card-report-time { font-size: 11px; color: #888; margin-bottom: 12px; }
-    .card-kicker {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+    .chip.active {
+      background: var(--green);
+      color: var(--white);
+      border-color: var(--green);
+      font-weight: 600;
+    }
+    .chip:hover:not(.active) { border-color: #999; color: var(--ink); }
+
+    /* keep old class names working (JS references idle-chip) */
+    .idle-chip { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-border); background: var(--white); color: var(--ink-2); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
+    .idle-chip.active { background: var(--green); color: var(--white); border-color: var(--green); font-weight: 600; }
+    .idle-chip:hover:not(.active) { border-color: #999; color: var(--ink); }
+
+    /* ── CONTROL PANEL ── */
+    .planner-controls {
+      background: var(--white);
+      border: 1px solid var(--gray-border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+    .control-group {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-bg);
+    }
+    .control-group:last-child { border-bottom: none; }
+    .group-label {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--muted);
       margin-bottom: 8px;
+    }
+    .chip-row {
+      display: flex;
       flex-wrap: wrap;
+      gap: 7px;
     }
-    .card-label {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      color: #7f8c8d;
-    }
-    .reliability-pill {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 5px 10px;
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-    .reliability-pill.tight {
-      background: #fff0f0;
-      color: #a32d2d;
-      border: 1px solid #f1b3b3;
-    }
-    .reliability-pill.okay {
-      background: #fff8e1;
-      color: #7a5f00;
-      border: 1px solid #f0d17a;
-    }
-    .reliability-pill.comfortable {
-      background: #edf8f0;
-      color: #1a6b4a;
-      border: 1px solid #b7dec7;
-    }
-    .cushion-note {
-      font-size: 12px;
-      border-radius: 8px;
-      padding: 7px 10px;
-      margin-bottom: 10px;
-      border: 1px solid #dfe7df;
-      background: #f7faf7;
-      color: #34503a;
-    }
-    .cushion-note.caution {
-      background: #fff8e1;
-      border-color: #f0c040;
-      color: #7a5f00;
-    }
-    .cushion-note.warning {
-      background: #fff0f0;
-      border-color: #f09595;
-      color: #a32d2d;
-    }
-    .alt-lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; }
-    .steps { width: 100%; border-collapse: collapse; }
-    .steps thead th { font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: 0.05em; text-transform: uppercase; padding: 0 0 6px; border-bottom: 1px solid #f0f0f0; }
-    .steps thead th:last-child, .steps thead th:nth-last-child(2) { text-align: right; }
-    .steps tbody tr { border-bottom: 1px solid #f7f7f7; }
-    .steps tbody tr:last-child { border-bottom: none; }
-    .steps tbody td { padding: 7px 0; vertical-align: middle; font-size: 13px; }
-    .step-icon { width: 26px; height: 26px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; flex-shrink: 0; }
-    .icon-walk { background: #eaf3de; }
-    .icon-bus  { background: #e6f1fb; }
-    .icon-rail { background: #eeedfe; }
-    .step-label { font-size: 13px; color: #222; padding-left: 10px; }
-    .step-time  { font-size: 13px; font-weight: 500; color: #444; text-align: right; white-space: nowrap; padding-left: 16px; min-width: 72px; }
-    .step-time.dim { color: #aaa; }
-    .wait-row td { padding: 2px 0 2px 36px; }
-    .wait-pill { display: inline-block; font-size: 11px; color: #888; background: #f5f5f5; border-radius: 999px; padding: 2px 10px; border: 1px solid #e8e8e8; }
-    .error { background: #fff0f0; border: 1px solid #f09595; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #a32d2d; }
-    .warn  { background: #fff8e1; border: 1px solid #f0c040; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #7a5f00; }
-    .loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
-    .walk-hint { font-size: 12px; color: #7a5f00; background: #fff8e1; border: 1px solid #f0c040; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
-    .idle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; flex-wrap: wrap; }
-    .idle-label { font-size: 12px; color: #666; white-space: nowrap; }
-    .idle-chip {
-      padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
-      border: 1.5px solid #ccc; background: white; cursor: pointer; transition: all 0.15s;
-    }
-    .idle-chip.active { background: #1a6b4a; color: white; border-color: #1a6b4a; }
-    .idle-chip:hover:not(.active) { border-color: #888; }
-    .choice-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; flex-wrap: wrap; }
-    .choice-label { font-size: 12px; color: #666; white-space: nowrap; }
-    .idle-custom { width: 52px; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1.5px solid #ccc; text-align: center; }
-    .idle-custom:focus { outline: none; border-color: #1a6b4a; }
-    .idle-unit { font-size: 12px; color: #666; }
+    /* Mode tabs use same chip style */
+    .tab { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-border); background: var(--white); color: var(--ink-2); cursor: pointer; transition: all 0.15s; }
+    .tab.active { background: var(--green); color: var(--white); border-color: var(--green); font-weight: 600; }
+    .tab:hover:not(.active) { border-color: #999; color: var(--ink); }
+    .tabs { display: flex; gap: 7px; flex-wrap: wrap; }
+
+    /* ── LINE 2 TOGGLE PANEL ── */
     .toggle-panel {
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin-bottom: 14px;
+      background: var(--white);
+      border: 1px solid var(--gray-border);
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin-bottom: 12px;
     }
     .toggle-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
-      margin-bottom: 6px;
     }
     .toggle-copy { flex: 1; min-width: 0; }
-    .toggle-title { font-size: 13px; font-weight: 600; color: #222; margin-bottom: 2px; }
-    .toggle-help { font-size: 12px; color: #666; line-height: 1.5; }
-    .toggle-help a { color: #1a6b4a; font-weight: 600; text-decoration: none; }
+    .toggle-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+    .toggle-help { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .toggle-help a { color: var(--green); font-weight: 600; text-decoration: none; }
     .toggle-help a:hover { text-decoration: underline; }
-    .switch {
-      position: relative;
-      display: inline-flex;
-      width: 48px;
-      height: 28px;
-      flex-shrink: 0;
-    }
+    .switch { position: relative; display: inline-flex; width: 46px; height: 27px; flex-shrink: 0; margin-top: 1px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
-      position: absolute;
-      inset: 0;
-      cursor: pointer;
-      background: #d9d9d9;
-      border-radius: 999px;
+      position: absolute; inset: 0; cursor: pointer;
+      background: #d9d9d9; border-radius: 999px;
       transition: background 0.2s ease;
     }
     .slider::before {
-      content: "";
-      position: absolute;
-      width: 22px;
-      height: 22px;
-      left: 3px;
-      top: 3px;
-      border-radius: 50%;
-      background: white;
+      content: ""; position: absolute;
+      width: 21px; height: 21px; left: 3px; top: 3px;
+      border-radius: 50%; background: white;
       transition: transform 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
     }
-    .switch input:checked + .slider { background: #1a6b4a; }
-    .switch input:checked + .slider::before { transform: translateX(20px); }
-    .toggle-status { font-size: 12px; color: #666; }
+    .switch input:checked + .slider { background: var(--green); }
+    .switch input:checked + .slider::before { transform: translateX(19px); }
+    .toggle-status { font-size: 12px; color: var(--muted); margin-top: 6px; }
     .default-panel {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-top: 12px; padding-top: 12px;
+      border-top: 1px solid var(--gray-bg); flex-wrap: wrap;
+    }
+    .default-status { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; min-width: 180px; }
+    .default-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      display: flex; align-items: center;
+      justify-content: space-between; margin-bottom: 6px; gap: 10px;
+    }
+    .desc { font-size: 12px; color: var(--muted); flex: 1; line-height: 1.4; }
+    .refresh {
+      font-size: 12px; font-weight: 600;
+      padding: 6px 16px; border-radius: 999px;
+      border: 1.5px solid var(--green);
+      color: var(--green); background: var(--white);
+      cursor: pointer; white-space: nowrap;
+      transition: all 0.15s;
+    }
+    .refresh:hover:not(:disabled) { background: var(--green); color: var(--white); }
+    .refresh:disabled { opacity: 0.5; cursor: default; }
+    .report-time { font-size: 11px; color: var(--muted-light); margin-bottom: 14px; }
+
+    /* ── RESULT CARDS ── */
+    .card {
+      background: var(--white);
+      border-radius: 16px;
+      border: 1px solid var(--gray-border);
+      margin-bottom: 10px;
+      overflow: hidden;
+    }
+    .card.top {
+      border-color: var(--green);
+      box-shadow: 0 2px 12px rgba(26, 107, 74, 0.12);
+    }
+
+    /* card top band */
+    .card-header {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 12px;
-      padding-top: 12px;
-      border-top: 1px solid #f0f0f0;
-      flex-wrap: wrap;
-    }
-    .default-status {
-      font-size: 12px;
-      color: #666;
-      line-height: 1.5;
-      flex: 1;
-      min-width: 220px;
-    }
-    .default-actions {
-      display: flex;
       gap: 8px;
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--gray-bg);
+      background: var(--gray-panel);
       flex-wrap: wrap;
     }
-    .snapshot-panel {
-      background: white;
-      border: 1px solid #e0e0e0;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin-top: 16px;
+    .card.top .card-header {
+      background: var(--green-light);
+      border-bottom-color: #d0e8d8;
     }
-    .snapshot-title { font-size: 13px; font-weight: 600; color: #222; margin-bottom: 4px; }
-    .snapshot-help { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 12px; }
-    .snapshot-empty { font-size: 12px; color: #888; }
+    .card-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .card.top .card-label { color: var(--green); }
+
+    /* realtime badge */
+    .badge {
+      font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 999px;
+      letter-spacing: 0.03em;
+    }
+    .badge-live  { background: #d6f5e6; color: #085041; }
+    .badge-sched { background: #f0f0f0; color: #888; }
+
+    /* reliability pill */
+    .reliability-pill {
+      font-size: 10px; font-weight: 800;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      padding: 3px 9px; border-radius: 999px;
+    }
+    .reliability-pill.tight       { background: #fff0f0; color: #a32d2d; border: 1px solid #f1b3b3; }
+    .reliability-pill.okay        { background: #fff8e1; color: #8a6010; border: 1px solid #f0d17a; }
+    .reliability-pill.comfortable { background: var(--green-light); color: var(--green); border: 1px solid var(--green-mid); }
+
+    /* card body */
+    .card-body { padding: 14px 16px; }
+
+    /* leave time hero */
+    .leave-hero { margin-bottom: 10px; }
+    .leave-lbl  {
+      font-size: 10px; font-weight: 700;
+      color: var(--muted); letter-spacing: 0.08em;
+      text-transform: uppercase; margin-bottom: 2px;
+    }
+    .leave-time-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+    .leave-time { font-size: 38px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1; }
+    .card.top .leave-time { color: var(--green); }
+    .countdown {
+      font-size: 13px; font-weight: 600; color: var(--green);
+      margin-bottom: 2px;
+    }
+    .countdown.now { color: var(--red); }
+    .trip-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+
+    /* cushion note */
+    .cushion-note {
+      font-size: 12px; border-radius: 10px;
+      padding: 8px 12px; margin-bottom: 12px;
+      border: 1px solid #dfe7df;
+      background: var(--gray-panel); color: #34503a;
+      line-height: 1.45;
+    }
+    .cushion-note.caution { background: #fffbee; border-color: #f0d07a; color: var(--amber); }
+    .cushion-note.warning { background: #fff5f5; border-color: #f09595; color: #a32d2d; }
+    .walk-hint {
+      font-size: 12px; color: var(--amber);
+      background: #fffbee; border: 1px solid #f0d07a;
+      border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;
+      line-height: 1.45;
+    }
+
+    /* ── STEP TIMELINE ── */
+    .step-list { list-style: none; position: relative; margin-bottom: 4px; }
+    .step-list::before {
+      content: "";
+      position: absolute;
+      left: 12px; top: 14px;
+      width: 2px;
+      bottom: 14px;
+      background: var(--gray-border);
+      border-radius: 2px;
+    }
+    .step-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 7px 0;
+      position: relative;
+    }
+    .step-dot {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; flex-shrink: 0;
+      position: relative; z-index: 1;
+    }
+    .dot-walk { background: #e0f0c8; }
+    .dot-bus  { background: #d4e8fc; }
+    .dot-rail { background: #e0deff; }
+    .step-content { flex: 1; min-width: 0; padding-top: 3px; }
+    .step-label-text { font-size: 13px; color: var(--ink-2); line-height: 1.3; }
+    .step-times {
+      display: flex; gap: 10px; margin-top: 2px;
+    }
+    .step-time-val {
+      font-size: 12px; font-weight: 600; color: var(--ink-2);
+    }
+    .step-time-sep { font-size: 12px; color: var(--muted-light); }
+    .step-time-arr { font-size: 12px; color: var(--muted); }
+    .wait-item {
+      display: flex;
+      align-items: center;
+      padding: 2px 0 4px 38px;
+    }
+    .wait-pill {
+      font-size: 11px; color: var(--muted);
+      background: var(--gray-bg);
+      border-radius: 999px; padding: 2px 10px;
+      border: 1px solid var(--gray-border);
+    }
+
+    /* card footer */
+    .card-footer {
+      padding: 10px 16px;
+      border-top: 1px solid var(--gray-bg);
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    }
+    .card-report-time { font-size: 11px; color: var(--muted-light); }
+    .card-btn {
+      font-size: 12px; font-weight: 500;
+      padding: 6px 14px; border-radius: 999px;
+      border: 1.5px solid var(--gray-border);
+      background: var(--white); cursor: pointer;
+      color: var(--ink-2); transition: all 0.15s;
+    }
+    .card-btn:hover:not(:disabled) { border-color: #999; color: var(--ink); }
+    .card-btn:disabled { opacity: 0.5; cursor: default; }
+
+    /* ── STATES ── */
+    .error {
+      background: #fff5f5; border: 1px solid #f09595;
+      border-radius: 12px; padding: 14px 16px;
+      font-size: 13px; color: #a32d2d; line-height: 1.5;
+    }
+    .warn {
+      background: #fffbee; border: 1px solid #f0d07a;
+      border-radius: 12px; padding: 14px 16px;
+      font-size: 13px; color: var(--amber); line-height: 1.5;
+    }
+    .loading {
+      text-align: center; padding: 40px 20px;
+      color: var(--muted-light); font-size: 14px;
+    }
+
+    /* ── SNAPSHOT PANEL ── */
+    .snapshot-panel {
+      background: var(--white); border: 1px solid var(--gray-border);
+      border-radius: 16px; padding: 14px 16px; margin-top: 14px;
+    }
+    .snapshot-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
+    .snapshot-help { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+    .snapshot-empty { font-size: 12px; color: var(--muted-light); }
     .snapshot-list { display: flex; flex-direction: column; gap: 10px; }
     .snapshot-item {
-      border: 1px solid #ececec;
-      border-radius: 10px;
-      padding: 10px;
-      display: flex;
-      gap: 10px;
-      align-items: flex-start;
+      border: 1px solid #eaeaea; border-radius: 12px;
+      padding: 10px; display: flex; gap: 10px; align-items: flex-start;
     }
-    .snapshot-thumb {
-      width: 92px;
-      border-radius: 8px;
-      border: 1px solid #e5e5e5;
-      flex-shrink: 0;
-      background: #fafafa;
-    }
+    .snapshot-thumb { width: 88px; border-radius: 8px; border: 1px solid #e0e0e0; flex-shrink: 0; background: #fafafa; }
     .snapshot-meta { flex: 1; min-width: 0; }
-    .snapshot-name { font-size: 12px; font-weight: 600; color: #222; margin-bottom: 4px; }
-    .snapshot-text { font-size: 12px; color: #666; line-height: 1.5; }
+    .snapshot-name { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+    .snapshot-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .snapshot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-    .snapshot-link {
-      font-size: 12px;
-      color: #1a6b4a;
-      text-decoration: none;
-      font-weight: 600;
-    }
+    .snapshot-link { font-size: 12px; color: var(--green); text-decoration: none; font-weight: 600; }
     .snapshot-link:hover { text-decoration: underline; }
 
     /* ── TIMINGS PAGE ── */
     .t-section { margin-bottom: 20px; }
-    .t-title { font-size: 11px; font-weight: 600; color: #888; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
-    .t-route { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 14px 16px; margin-bottom: 10px; }
-    .t-route-name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
-    .t-route-note { font-size: 12px; color: #777; margin-bottom: 12px; line-height: 1.5; }
-
-    /* timeline bar */
-    .timeline { display: flex; align-items: stretch; gap: 0; margin-bottom: 6px; border-radius: 6px; overflow: hidden; height: 32px; }
+    .t-title {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+    }
+    .t-route {
+      background: var(--white); border-radius: 14px;
+      border: 1px solid var(--gray-border);
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .t-route-name { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+    .t-route-note { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+    .timeline {
+      display: flex; align-items: stretch; gap: 0;
+      margin-bottom: 10px; border-radius: 8px; overflow: hidden; height: 30px;
+    }
     .tl-seg {
       display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 500; white-space: nowrap;
-      overflow: hidden; min-width: 0;
+      font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; min-width: 0;
     }
-    .tl-walk  { background: #d4edbc; color: #27500a; }
-    .tl-bus   { background: #bdd7f5; color: #0c447c; }
-    .tl-rail  { background: #d5d1f7; color: #3c3489; }
-    .tl-walk2 { background: #e8f5d8; color: #3b6d11; }
-    .tl-end   { background: #c8eadc; color: #085041; }
-
-    /* legend rows */
-    .t-legs { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
-    .t-leg { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #444; }
-    .t-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .tl-walk  { background: #c6e8a0; color: #2a5000; }
+    .tl-bus   { background: #a8d4f8; color: #0a3870; }
+    .tl-rail  { background: #c4bffc; color: #2e2880; }
+    .tl-walk2 { background: #d8f0b8; color: #345a00; }
+    .tl-end   { background: #a8dcc4; color: #054030; }
+    .t-legs { display: flex; flex-direction: column; gap: 5px; }
+    .t-leg { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ink-2); }
+    .t-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
     .t-leg-label { flex: 1; }
-    .t-leg-val { font-weight: 600; color: #111; white-space: nowrap; }
-    .t-total { font-size: 12px; color: #888; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f0f0f0; }
-    .t-total strong { color: #111; }
+    .t-leg-val { font-weight: 700; color: var(--ink); white-space: nowrap; }
+    .t-total {
+      font-size: 12px; color: var(--muted);
+      margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--gray-bg);
+    }
+    .t-total strong { color: var(--ink); }
+    .timings-note {
+      font-size: 12px; color: var(--muted); line-height: 1.6;
+      background: var(--white); border-radius: 12px;
+      border: 1px solid var(--gray-border); padding: 12px 14px; margin-bottom: 16px;
+    }
+
+    /* ── TIMINGS CONTROLS ── */
+    .timings-controls {
+      background: var(--white); border: 1px solid var(--gray-border);
+      border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
+    }
+    .timings-controls .group-label { margin-bottom: 8px; }
+
+    /* ── IDLE (old name referenced in JS) ── */
+    .idle-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+    .choice-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
 
-  <h1>🚌 UW Commute Planner</h1>
-
-  <div class="nav">
-    <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
-    <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
+  <!-- ── HEADER ── -->
+  <div class="app-header">
+    <div class="app-title">🚌 UW <span>Commute</span> Planner</div>
+    <nav class="nav">
+      <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
+      <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
+    </nav>
   </div>
 
-  <!-- ── PLANNER PAGE ── -->
+  <!-- ══ PLANNER PAGE ══ -->
   <div class="page visible" id="page-planner">
+
+    <!-- controls panel -->
     <div class="planner-controls">
+
       <div class="control-group">
         <div class="group-label">Starting Point</div>
-        <div class="choice-row">
+        <div class="chip-row">
           <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
           <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
         </div>
       </div>
+
       <div class="control-group" id="mode-group">
         <div class="group-label">Mode</div>
         <div class="tabs" id="tabs"></div>
       </div>
+
       <div class="control-group">
         <div class="group-label">Departure Filter</div>
-        <div class="choice-row">
+        <div class="chip-row">
           <button class="idle-chip active" id="window-mode-within" onclick="setWindowMode('within', this)">Within</button>
           <button class="idle-chip" id="window-mode-after" onclick="setWindowMode('after', this)">After</button>
         </div>
       </div>
+
       <div class="control-group">
-        <div class="group-label" id="stay-label">Leave within</div>
+        <div class="group-label" id="stay-label">Leave within:</div>
         <div class="idle-row" id="stay-row">
           <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
           <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
@@ -358,20 +495,24 @@
           <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
         </div>
       </div>
+
       <div class="control-group">
         <div class="group-label">Destination</div>
-        <div class="choice-row">
+        <div class="chip-row">
           <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">333</button>
           <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">348</button>
           <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
         </div>
       </div>
+
     </div>
+
+    <!-- line 2 + defaults panel -->
     <div class="toggle-panel">
       <div class="toggle-row">
         <div class="toggle-copy">
           <div class="toggle-title">Include Line 2</div>
-          <div class="toggle-help">Turn this off if Line 2 is not reaching your intended station because of construction or service changes. <a href="https://www.soundtransit.org/ride-with-us/service-alerts" target="_blank" rel="noopener noreferrer">Check Sound Transit alerts</a>.</div>
+          <div class="toggle-help">Turn off if Line 2 isn't reaching your station. <a href="https://www.soundtransit.org/ride-with-us/service-alerts" target="_blank" rel="noopener noreferrer">Check Sound Transit alerts</a>.</div>
         </div>
         <label class="switch" aria-label="Include Line 2">
           <input type="checkbox" id="line2-toggle" checked onchange="setLine2Preference(this.checked)">
@@ -382,43 +523,51 @@
       <div class="default-panel">
         <div class="default-status" id="default-setup-status">No saved default setup yet.</div>
         <div class="default-actions">
-          <button class="card-btn" onclick="saveCurrentAsDefault()">Save current as default</button>
-          <button class="card-btn" onclick="clearSavedDefault()">Clear default</button>
+          <button class="card-btn" onclick="saveCurrentAsDefault()">Save as default</button>
+          <button class="card-btn" onclick="clearSavedDefault()">Clear</button>
         </div>
       </div>
     </div>
+
+    <!-- toolbar -->
     <div class="toolbar">
       <span class="desc" id="desc"></span>
       <button class="refresh" id="refresh-btn" onclick="load()">↻ Refresh</button>
     </div>
     <div class="report-time" id="report-time">Report time: —</div>
+
+    <!-- results -->
     <div id="out"><div class="loading">Press Refresh to load latest departures.</div></div>
+
+    <!-- snapshots -->
     <div class="snapshot-panel">
       <div class="snapshot-title">Saved Snapshots</div>
-      <div class="snapshot-help">Save a screenshot of a plan card for quick reference. Snapshots stay on this device for 24 hours and then expire automatically.</div>
+      <div class="snapshot-help">Save a screenshot of a plan card for quick reference. Snapshots stay on this device for 24 hours.</div>
       <div id="snapshot-list" class="snapshot-empty">No saved snapshots yet.</div>
     </div>
   </div>
 
-  <!-- ── TIMINGS PAGE ── -->
+  <!-- ══ TIMINGS PAGE ══ -->
   <div class="page" id="page-timings">
-    <div class="choice-row" style="margin-bottom: 14px;">
-      <span class="choice-label">Display destination:</span>
-      <button class="idle-chip active" id="timings-destination-333" onclick="setTimingsDestination('333', this)">333</button>
-      <button class="idle-chip" id="timings-destination-348" onclick="setTimingsDestination('348', this)">348</button>
-      <button class="idle-chip" id="timings-destination-train-north" onclick="setTimingsDestination('train_north', this)">Train only</button>
+
+    <div class="timings-controls">
+      <div class="group-label">Display destination:</div>
+      <div class="chip-row">
+        <button class="idle-chip active" id="timings-destination-333" onclick="setTimingsDestination('333', this)">333</button>
+        <button class="idle-chip" id="timings-destination-348" onclick="setTimingsDestination('348', this)">348</button>
+        <button class="idle-chip" id="timings-destination-train-north" onclick="setTimingsDestination('train_north', this)">Train only</button>
+      </div>
     </div>
 
-    <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px; margin-bottom:16px;">
-      These graphics show the base route timing assumptions for each option.<br>
-      They do not include extra wait or cushion created by a specific live connection, missed transfer, or schedule gap.
+    <div class="timings-note">
+      Base route timing assumptions — physical legs only. These do not include live transfer wait or cushion shown on Planner cards.
     </div>
 
     <div class="t-section">
       <div class="t-title">Mode 1 — Walk</div>
       <div class="t-route">
         <div class="t-route-name" id="timings-mode1-name">Odegaard → U-District Station → 1 Line → Bus 333</div>
-        <div class="t-route-note">This is a reference timing view. Live planner results may be faster or slower depending on the actual connection.</div>
+        <div class="t-route-note">Reference timing. Live results may differ based on actual connections.</div>
         <div class="timeline" id="tl-mode1"></div>
         <div class="t-legs" id="lg-mode1"></div>
         <div class="t-total" id="tot-mode1"></div>
@@ -427,18 +576,16 @@
 
     <div class="t-section">
       <div class="t-title">Mode 2 — Bus</div>
-
       <div class="t-route">
         <div class="t-route-name">🚌 Bus 44 / 372</div>
-        <div class="t-route-note">This is a reference timing view. The planner will only show Bus 44 or 372 when a live trip actually lines up.</div>
+        <div class="t-route-note">Shown in planner only when a live trip lines up with your connection.</div>
         <div class="timeline" id="tl-44"></div>
         <div class="t-legs" id="lg-44"></div>
         <div class="t-total" id="tot-44"></div>
       </div>
-
       <div class="t-route">
         <div class="t-route-name">🚌 Bus 45</div>
-        <div class="t-route-note">This is a reference timing view. The planner will only show Bus 45 when a live trip actually lines up.</div>
+        <div class="t-route-note">Shown in planner only when a live trip lines up with your connection.</div>
         <div class="timeline" id="tl-45"></div>
         <div class="t-legs" id="lg-45"></div>
         <div class="t-total" id="tot-45"></div>
@@ -446,11 +593,10 @@
     </div>
 
     <div class="t-section">
-      <div class="t-title">Note</div>
-      <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px;">
-        Walk times include buffer so you don't miss a connection.<br>
-        The final segment reflects the currently selected destination and shows either station-to-bus walk time or direct train arrival.<br>
-        Live transfer cushion is shown on Planner cards instead of being built into these timing totals.<br>
+      <div class="t-title">Notes</div>
+      <div class="timings-note" style="margin-bottom:0">
+        Walk times include buffer to avoid missed connections.<br>
+        Live transfer cushion is shown on Planner cards, not here.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
     </div>
@@ -472,15 +618,12 @@
   let currentConnections = [];
   let currentReportTimeLabel = '—';
 
-  // nav
   function showPage(id, btn) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('page-' + id).classList.add('visible');
     btn.classList.add('active');
   }
-
-  // ── PLANNER ──────────────────────────────────────────────────────────────────
 
   async function initModes() {
     const d = await fetch('/api/modes').then(r => r.json());
@@ -501,12 +644,10 @@
     });
   }
 
-  const ICONS = { walk: '🚶', bus: '🚌', rail: '🚇' };
-  const ICON_CLASS = { walk: 'icon-walk', bus: 'icon-bus', rail: 'icon-rail' };
+  const ICONS      = { walk: '🚶', bus: '🚌', rail: '🚇' };
+  const DOT_CLASS  = { walk: 'dot-walk', bus: 'dot-bus', rail: 'dot-rail' };
   const DESTINATION_LABELS = {
-    '333': 'Bus 333',
-    '348': 'Bus 348',
-    'train_north': 'Shoreline North/185th',
+    '333': 'Bus 333', '348': 'Bus 348', 'train_north': 'Shoreline North/185th',
   };
   const LINE_LABEL = () => includeLine2 ? '1 Line / 2 Line' : '1 Line';
 
@@ -525,7 +666,6 @@
     document.getElementById('window-mode-after').classList.toggle('active', windowMode === 'after');
     document.getElementById('stay-label').textContent = windowMode === 'within' ? 'Leave within:' : 'Leave after:';
   }
-
   function setWindowMode(value, btn) {
     windowMode = value;
     updateWindowModeButtons();
@@ -536,12 +676,9 @@
     document.getElementById('start-odegaard').classList.toggle('active', startPoint === 'odegaard');
     document.getElementById('start-u-district-station').classList.toggle('active', startPoint === 'u_district_station');
   }
-
   function updateModeVisibility() {
-    const modeGroup = document.getElementById('mode-group');
-    modeGroup.style.display = startPoint === 'u_district_station' ? 'none' : 'block';
+    document.getElementById('mode-group').style.display = startPoint === 'u_district_station' ? 'none' : 'block';
   }
-
   function setStartPoint(value, btn) {
     startPoint = value;
     updateStartPointButtons();
@@ -555,13 +692,11 @@
     document.getElementById('destination-348').classList.toggle('active', destination === '348');
     document.getElementById('destination-train-north').classList.toggle('active', destination === 'train_north');
   }
-
   function updateTimingsDestinationButtons() {
     document.getElementById('timings-destination-333').classList.toggle('active', timingsDestination === '333');
     document.getElementById('timings-destination-348').classList.toggle('active', timingsDestination === '348');
     document.getElementById('timings-destination-train-north').classList.toggle('active', timingsDestination === 'train_north');
   }
-
   function setTimingsDestination(value, btn) {
     timingsDestination = value;
     updateTimingsDestinationButtons();
@@ -574,7 +709,9 @@
       : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
     const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
     const destinationLabel = setup.destination === 'train_north' ? 'Train only' : `Bus ${setup.destination}`;
-    const windowLabel = setup.windowMode === 'after' ? `Leave after ${setup.stayWindow} min` : `Leave within ${setup.stayWindow} min`;
+    const windowLabel = setup.windowMode === 'after'
+      ? `Leave after ${setup.stayWindow} min`
+      : `Leave within ${setup.stayWindow} min`;
     return `${modeLabel} · ${windowLabel} · ${destinationLabel} · ${line2Label}`;
   }
 
@@ -590,118 +727,123 @@
       if (![15, 30, 45, 60].includes(parsed.stayWindow)) return null;
       if (!['333', '348', 'train_north'].includes(parsed.destination || parsed.finalBus || '333')) return null;
       if (typeof parsed.includeLine2 !== 'boolean') return null;
-      parsed.windowMode = parsed.windowMode || 'within';
-      parsed.startPoint = parsed.startPoint || 'odegaard';
-      parsed.destination = parsed.destination || parsed.finalBus || '333';
+      parsed.windowMode   = parsed.windowMode   || 'within';
+      parsed.startPoint   = parsed.startPoint   || 'odegaard';
+      parsed.destination  = parsed.destination  || parsed.finalBus || '333';
       return parsed;
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
-
   function renderSavedDefaultStatus() {
     const saved = readSavedDefaultSetup();
     document.getElementById('default-setup-status').textContent = saved
       ? `Saved default: ${formatDefaultSetupSummary(saved)}`
       : 'No saved default setup yet.';
   }
-
   function updateStayButtons() {
     document.querySelectorAll('#stay-row .idle-chip').forEach(b => {
       b.classList.toggle('active', Number.parseInt(b.textContent, 10) === stayWindow);
     });
   }
-
   function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
     currentConnections = [];
     currentReportTimeLabel = '—';
     document.getElementById('report-time').textContent = 'Report time: —';
     document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
   }
-
   function saveCurrentAsDefault() {
     const setup = { mode, stayWindow, windowMode, destination, includeLine2, startPoint };
     localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
     renderSavedDefaultStatus();
   }
-
   function clearSavedDefault() {
     localStorage.removeItem(DEFAULT_SETUP_STORAGE_KEY);
     renderSavedDefaultStatus();
   }
-
   function applySavedDefaultSetup() {
     const saved = readSavedDefaultSetup();
-    if (!saved) {
-      timingsDestination = destination;
-      return;
-    }
-    mode = saved.mode;
-    stayWindow = saved.stayWindow;
-    windowMode = saved.windowMode;
-    destination = saved.destination;
-    includeLine2 = saved.includeLine2;
-    startPoint = saved.startPoint;
+    if (!saved) { timingsDestination = destination; return; }
+    mode            = saved.mode;
+    stayWindow      = saved.stayWindow;
+    windowMode      = saved.windowMode;
+    destination     = saved.destination;
+    includeLine2    = saved.includeLine2;
+    startPoint      = saved.startPoint;
     timingsDestination = saved.destination;
   }
 
-  function getReliabilityMeta(connection) {
-    const cushion = connection.transfer_cushion_mins;
-    if (cushion === null || cushion === undefined) {
-      return null;
-    }
-    if (cushion <= 0) {
-      return { cls: 'tight', label: 'Tight' };
-    }
-    if (cushion <= 2) {
-      return { cls: 'okay', label: 'Okay' };
-    }
-    return { cls: 'comfortable', label: 'Comfortable' };
+  function getReliabilityMeta(c) {
+    const cushion = c.transfer_cushion_mins;
+    if (cushion === null || cushion === undefined) return null;
+    if (cushion <= 0)  return { cls: 'tight',       label: 'Tight' };
+    if (cushion <= 2)  return { cls: 'okay',        label: 'Okay' };
+    return             { cls: 'comfortable', label: 'Comfortable' };
   }
 
   function renderCard(c, first, index) {
-    const urgent = c.minutes_until <= 5;
-    const countText = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
-    const badge = c.is_realtime
+    const urgent      = c.minutes_until <= 5;
+    const countText   = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
+    const badge       = c.is_realtime
       ? '<span class="badge badge-live">Live</span>'
       : '<span class="badge badge-sched">Scheduled</span>';
     const reliability = getReliabilityMeta(c);
-    const cushion = c.transfer_cushion_mins ?? null;
+    const cushion     = c.transfer_cushion_mins ?? null;
     const cushionClass = cushion === null ? '' : (cushion <= 0 ? ' warning' : cushion <= 2 ? ' caution' : '');
-    const cushionText = cushion === null
-      ? ''
-      : cushion <= 0
-        ? `No extra cushion at ${c.transfer_station_label} — transfer is tight`
-        : `${cushion} min cushion at ${c.transfer_station_label} after the ${c.transfer_walk_mins} min station walk`;
-    const cardLabel = first ? 'Best option' : 'Backup option';
-    let rows = '';
+    const cushionText  = cushion === null ? '' : cushion <= 0
+      ? `⚠️ No cushion at ${c.transfer_station_label} — tight transfer`
+      : `${cushion} min cushion at ${c.transfer_station_label} after ${c.transfer_walk_mins} min walk`;
+    const cardLabel   = first ? 'Best option' : 'Backup option';
+    const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
+    const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
+
+    // build steps HTML
+    let stepsHtml = '<ul class="step-list">';
     c.steps.forEach(s => {
-      const icon = `<div class="step-icon ${ICON_CLASS[s.icon]}">${ICONS[s.icon]}</div>`;
-      const dep = s.depart ? `<td class="step-time">${s.depart}</td>` : `<td class="step-time dim">—</td>`;
-      const arr = s.arrive ? `<td class="step-time">${s.arrive}</td>` : `<td class="step-time dim">—</td>`;
-      rows += `<tr><td style="width:30px">${icon}</td><td class="step-label">${s.label}</td>${dep}${arr}</tr>`;
+      const depStr = s.depart || '';
+      const arrStr = s.arrive || '';
+      const timeParts = depStr && arrStr
+        ? `<span class="step-time-val">${depStr}</span><span class="step-time-sep">→</span><span class="step-time-arr">${arrStr}</span>`
+        : depStr
+          ? `<span class="step-time-val">${depStr}</span>`
+          : arrStr
+            ? `<span class="step-time-arr">→ ${arrStr}</span>`
+            : '';
+      stepsHtml += `
+        <li class="step-item">
+          <div class="step-dot ${DOT_CLASS[s.icon]}">${ICONS[s.icon]}</div>
+          <div class="step-content">
+            <div class="step-label-text">${s.label}</div>
+            ${timeParts ? `<div class="step-times">${timeParts}</div>` : ''}
+          </div>
+        </li>`;
       if (s.wait_after !== null && s.wait_after !== undefined) {
         const wt = s.wait_after <= 1 ? '~1 min wait' : `${s.wait_after} min wait`;
-        rows += `<tr class="wait-row"><td></td><td colspan="3"><span class="wait-pill">⏱ ${wt}</span></td></tr>`;
+        stepsHtml += `<li class="wait-item"><span class="wait-pill">⏱ ${wt}</span></li>`;
       }
     });
+    stepsHtml += '</ul>';
+
     return `
       <div class="card${first ? ' top' : ''}" id="plan-card-${index}">
-        <div class="card-kicker">
-          <div class="card-label">${cardLabel}</div>
+        <div class="card-header">
+          <span class="card-label">${cardLabel}</span>
           ${reliability ? `<span class="reliability-pill ${reliability.cls}">${reliability.label}</span>` : ''}
+          ${badge}
         </div>
-        <div class="leave-lbl">${c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard')}</div>
-        <div class="leave-time">${c.leave_odegaard}${badge}</div>
-        <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${c.destination_label || DESTINATION_LABELS[destination]}</span></div>
-        <div class="card-report-time">Report time: ${currentReportTimeLabel}</div>
-        ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
-        ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
-        <table class="steps">
-          <thead><tr><th></th><th style="text-align:left"></th><th>Depart</th><th>Arrive</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div class="card-actions">
+        <div class="card-body">
+          <div class="leave-hero">
+            <div class="leave-lbl">${leaveLabel}</div>
+            <div class="leave-time-row">
+              <div class="leave-time">${c.leave_odegaard}</div>
+            </div>
+          </div>
+          <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
+          <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
+          ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
+          ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
+          ${stepsHtml}
+        </div>
+        <div class="card-footer">
+          <div class="card-report-time">As of ${currentReportTimeLabel}</div>
           <button class="card-btn" id="save-btn-${index}" onclick="saveSnapshot(${index})">Save snapshot</button>
         </div>
       </div>`;
@@ -716,12 +858,10 @@
       ? 'Line 2 trips will be considered in planner results.'
       : 'Only 1 Line trips will be considered in planner results.';
   }
-
   function loadLine2Preference() {
     document.getElementById('line2-toggle').checked = includeLine2;
     updateLine2Status();
   }
-
   function setLine2Preference(enabled) {
     includeLine2 = enabled;
     updateLine2Status();
@@ -729,19 +869,16 @@
     initTimings();
     markPlannerDirty();
   }
-
   function loadDestinationPreference() {
     updateDestinationButtons();
     updatePlannerDescription();
   }
-
   function setDestination(value, btn) {
     destination = value;
     updateDestinationButtons();
     updatePlannerDescription();
     markPlannerDirty();
   }
-
   function setStay(val, btn) {
     stayWindow = val;
     document.querySelectorAll('#stay-row .idle-chip').forEach(b => b.classList.remove('active'));
@@ -749,20 +886,16 @@
     markPlannerDirty();
   }
 
+  // snapshots
   function getSavedSnapshots() {
     try {
       const parsed = JSON.parse(localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '[]');
-      if (!Array.isArray(parsed)) return [];
-      return parsed;
-    } catch {
-      return [];
-    }
+      return Array.isArray(parsed) ? parsed : [];
+    } catch { return []; }
   }
-
   function setSavedSnapshots(items) {
     localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(items));
   }
-
   function pruneSnapshots() {
     const now = Date.now();
     const active = getSavedSnapshots()
@@ -771,7 +904,6 @@
     setSavedSnapshots(active);
     return active;
   }
-
   function renderSnapshots() {
     const list = document.getElementById('snapshot-list');
     const items = pruneSnapshots();
@@ -780,7 +912,6 @@
       list.textContent = 'No saved snapshots yet.';
       return;
     }
-
     list.className = 'snapshot-list';
     list.innerHTML = items.map(item => `
       <div class="snapshot-item">
@@ -798,44 +929,26 @@
       </div>
     `).join('');
   }
-
   async function openSnapshot(id) {
-    const item = pruneSnapshots().find(snapshot => snapshot.id === id);
+    const item = pruneSnapshots().find(s => s.id === id);
     if (!item) return;
-
     try {
-      const response = await fetch(item.image);
-      const blob = await response.blob();
-      const blobUrl = URL.createObjectURL(blob);
-      const win = window.open(blobUrl, '_blank', 'noopener,noreferrer');
-      if (!win) {
-        URL.revokeObjectURL(blobUrl);
-        return;
-      }
-      setTimeout(() => URL.revokeObjectURL(blobUrl), 60 * 1000);
-    } catch (error) {
-      alert('Could not open this snapshot.');
-    }
+      const blob = await (await fetch(item.image)).blob();
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, '_blank', 'noopener,noreferrer');
+      if (win) setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch { alert('Could not open this snapshot.'); }
   }
-
   function deleteSnapshot(id) {
-    const items = getSavedSnapshots().filter(item => item.id !== id);
-    setSavedSnapshots(items);
+    setSavedSnapshots(getSavedSnapshots().filter(item => item.id !== id));
     renderSnapshots();
   }
-
   async function saveSnapshot(index) {
-    const card = document.getElementById(`plan-card-${index}`);
+    const card   = document.getElementById(`plan-card-${index}`);
     const button = document.getElementById(`save-btn-${index}`);
     if (!card || !currentConnections[index]) return;
-    if (!window.html2canvas) {
-      alert('Snapshot capture is unavailable right now.');
-      return;
-    }
-
-    button.disabled = true;
-    button.textContent = 'Saving...';
-
+    if (!window.html2canvas) { alert('Snapshot capture is unavailable right now.'); return; }
+    button.disabled = true; button.textContent = 'Saving…';
     try {
       const canvas = await window.html2canvas(card, {
         backgroundColor: '#ffffff',
@@ -846,58 +959,48 @@
       const savedAt = new Date(now);
       const expiresAt = now + SNAPSHOT_TTL_MS;
       const connection = currentConnections[index];
-      const modeLabel = startPoint === 'u_district_station' ? 'U-District Station' : (mode === 1 ? 'Walk' : 'Bus');
-      const title = `${connection.leave_odegaard} · ${modeLabel}`;
-      const filename = `commute-plan-${savedAt.toISOString().replace(/[:.]/g, '-')}.jpg`;
-
+      const modeLabel  = startPoint === 'u_district_station' ? 'U-District Station' : (mode === 1 ? 'Walk' : 'Bus');
+      const title      = `${connection.leave_odegaard} · ${modeLabel}`;
+      const filename   = `commute-plan-${savedAt.toISOString().replace(/[:.]/g, '-')}.jpg`;
       const item = {
-        id: `${now}-${index}`,
-        title,
-        image,
-        filename,
-        savedAt,
-        savedAtLabel: savedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
-        expiresAt,
+        id: `${now}-${index}`, title, image, filename,
+        savedAt, expiresAt,
+        savedAtLabel:   savedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
         expiresAtLabel: new Date(expiresAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
         reportTime: currentReportTimeLabel,
       };
-
       const items = pruneSnapshots();
       items.unshift(item);
       setSavedSnapshots(items.slice(0, MAX_SNAPSHOTS));
       renderSnapshots();
-      button.textContent = 'Saved';
-      setTimeout(() => {
-        button.disabled = false;
-        button.textContent = 'Save snapshot';
-      }, 1200);
+      button.textContent = 'Saved ✓';
+      setTimeout(() => { button.disabled = false; button.textContent = 'Save snapshot'; }, 1400);
       return;
-    } catch (error) {
-      alert('Could not save that snapshot. Try again.');
-    }
-
-    button.disabled = false;
-    button.textContent = 'Save snapshot';
+    } catch { alert('Could not save snapshot. Try again.'); }
+    button.disabled = false; button.textContent = 'Save snapshot';
   }
 
   async function load() {
-    const out = document.getElementById('out');
+    const out        = document.getElementById('out');
     const refreshBtn = document.getElementById('refresh-btn');
     const reportTime = document.getElementById('report-time');
-    const loadId = ++activeLoadId;
+    const loadId     = ++activeLoadId;
 
     refreshBtn.disabled = true;
-    refreshBtn.textContent = 'Refreshing...';
-
+    refreshBtn.textContent = 'Refreshing…';
     if (!hasLoadedConnections) {
       out.innerHTML = '<div class="loading">Fetching live data…</div>';
     } else {
-      reportTime.textContent = 'Refreshing departures...';
+      reportTime.textContent = 'Refreshing departures…';
     }
 
     try {
-      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`).then(r => r.json());
+      const d = await fetch(
+        `/api/connections?mode=${mode}&stay=${stayWindow}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`
+      ).then(r => r.json());
+
       if (loadId !== activeLoadId) return;
+
       if (d.error === 'rate_limit') {
         out.innerHTML = '<div class="warn">⏱ Rate limited. Try Refresh again in a few seconds.</div>';
         reportTime.textContent = 'Report time: delayed by rate limit';
@@ -909,11 +1012,12 @@
         updatePlannerDescription();
         return;
       }
+
       document.getElementById('desc').textContent = d.mode_description;
       currentReportTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-      reportTime.textContent =
-        `Report time: ${currentReportTimeLabel} — refresh for latest departures`;
+      reportTime.textContent = `Report time: ${currentReportTimeLabel} — refresh for latest`;
       currentConnections = (d.connections || []).slice(0, 2);
+
       let html = '';
       if (d.out_of_window_note) {
         html += `<div class="warn" style="margin-bottom:10px">⚠️ ${d.out_of_window_note}</div>`;
@@ -921,9 +1025,10 @@
       html += currentConnections.map((c, i) => renderCard(c, i === 0, i)).join('');
       out.innerHTML = html;
       hasLoadedConnections = true;
+
     } catch(e) {
       if (loadId !== activeLoadId) return;
-      out.innerHTML = `<div class="error">Could not reach server. Is the app running?</div>`;
+      out.innerHTML = '<div class="error">Could not reach server. Is the app running?</div>';
       reportTime.textContent = 'Report time: unavailable';
       updatePlannerDescription();
     } finally {
@@ -934,6 +1039,7 @@
     }
   }
 
+  // ── INIT ──
   applySavedDefaultSetup();
   loadLine2Preference();
   loadDestinationPreference();
@@ -949,39 +1055,28 @@
     markPlannerDirty('Press Refresh to load latest departures.');
   });
 
-  // ── TIMINGS PAGE ──────────────────────────────────────────────────────────────
-
-  // Type → visual style mapping (presentation only, not data)
+  // ── TIMINGS ──
   const TYPE_STYLE = {
-    walk:  { cls: "tl-walk",  dot: "#d4edbc" },
-    bus:   { cls: "tl-bus",   dot: "#bdd7f5" },
-    rail:  { cls: "tl-rail",  dot: "#d5d1f7" },
-    walk2: { cls: "tl-walk2", dot: "#e8f5d8" },
-    end:   { cls: "tl-end",   dot: "#c8eadc" },
+    walk:  { cls: 'tl-walk',  dot: '#c6e8a0' },
+    bus:   { cls: 'tl-bus',   dot: '#a8d4f8' },
+    rail:  { cls: 'tl-rail',  dot: '#c4bffc' },
+    walk2: { cls: 'tl-walk2', dot: '#d8f0b8' },
+    end:   { cls: 'tl-end',   dot: '#a8dcc4' },
   };
-
   function buildTimeline(tlId, lgId, totId, legs) {
     const total = legs.reduce((s, l) => s + l.min, 0);
-    const tlEl = document.getElementById(tlId);
-    tlEl.innerHTML = legs.map(l => {
-      const st = TYPE_STYLE[l.type];
+    document.getElementById(tlId).innerHTML = legs.map(l => {
+      const st  = TYPE_STYLE[l.type];
       const pct = (l.min / total * 100).toFixed(1);
-      const label = l.min >= 3 ? `${l.min}m` : '';
-      return `<div class="tl-seg ${st.cls}" style="width:${pct}%">${label}</div>`;
+      return `<div class="tl-seg ${st.cls}" style="width:${pct}%">${l.min >= 3 ? l.min + 'm' : ''}</div>`;
     }).join('');
-    const lgEl = document.getElementById(lgId);
-    lgEl.innerHTML = legs.map(l => {
+    document.getElementById(lgId).innerHTML = legs.map(l => {
       const st = TYPE_STYLE[l.type];
-      return `<div class="t-leg">
-        <div class="t-dot" style="background:${st.dot}"></div>
-        <div class="t-leg-label">${l.label}</div>
-        <div class="t-leg-val">${l.min} min</div>
-      </div>`;
+      return `<div class="t-leg"><div class="t-dot" style="background:${st.dot}"></div><div class="t-leg-label">${l.label}</div><div class="t-leg-val">${l.min} min</div></div>`;
     }).join('');
     document.getElementById(totId).innerHTML =
-      `Base time: <strong>${total} min</strong> (physical route timing only; live cushion and extra waits not included)`;
+      `Base time: <strong>${total} min</strong> (route timing only; live cushion and extra waits not included)`;
   }
-
   async function initTimings() {
     try {
       const d = await fetch(`/api/timings?destination=${timingsDestination}&include_line2=${includeLine2}`).then(r => r.json());
@@ -995,9 +1090,7 @@
         '<div class="error" style="margin-bottom:12px">Could not load timing data from server.</div>');
     }
   }
-
   initTimings();
-
 </script>
 </body>
 </html>

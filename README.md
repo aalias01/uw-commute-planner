@@ -1,6 +1,6 @@
 # UW Commute Planner
 
-A real-time commute planner for one specific question: when should I leave Odegaard right now to catch the best connection home?
+A real-time commute planner for one specific question: when should I leave — and from where — to catch the best connection home?
 
 **Live demo:** [uw-commute-planner.vercel.app](https://uw-commute-planner.vercel.app)
 
@@ -10,23 +10,26 @@ A real-time commute planner for one specific question: when should I leave Odega
 
 General transit apps are great at showing routes, but they are not always great at answering a narrow, repeated decision:
 
-**Should I leave now, wait a few minutes, walk straight to the station, or catch a feeder bus first?**
+**Should I leave now, wait a few minutes, walk straight to the station, or catch a feeder bus first? And where am I even starting from?**
 
-This app is built around one real commute from UW. Instead of searching broadly, it works backwards from the final bus and picks the best live option based on the current connection.
+This app is built around one real commute from UW. Instead of searching broadly, it works backwards from the selected destination and picks the best live option based on the current connection.
 
 ---
 
 ## What It Does
 
-The planner pulls live arrivals from the [OneBusAway Puget Sound API](https://pugetsound.onebusaway.org) and evaluates two commute modes:
+The planner pulls live arrivals from the [OneBusAway Puget Sound API](https://pugetsound.onebusaway.org) and evaluates your commute based on where you're starting and where you're headed.
 
-- **Walk:** Odegaard → U-District Station platform → train → final bus
-- **Bus:** feeder bus → U-District Station → train → final bus
+**Two starting points:**
 
-It currently supports two final-bus branches:
+- **Odegaard Library:** full planning from campus. Choose Walk (direct to station) or Bus (feeder bus first).
+- **U-District Station:** planning starts at the platform. Walk/Bus mode is skipped entirely.
+
+**Three destinations:**
 
 - **Bus 333:** Shoreline South/148th → Mountlake Terrace Station direction
 - **Bus 348:** Shoreline North/185th → Richmond Beach direction
+- **Train only:** ride ends at Shoreline North/185th with no final bus
 
 The app is intentionally route-specific. It is designed for one commute and tries to make that commute feel effortless.
 
@@ -34,18 +37,20 @@ The app is intentionally route-specific. It is designed for one commute and trie
 
 ## How The Planner Decides
 
-The planner works backwards from upcoming departures of the selected final bus.
+The planner works backwards from upcoming departures at the selected destination.
 
-For each candidate final-bus trip, it:
+For each candidate trip, it:
 
-1. Finds the latest train that can still physically make that bus.
-2. For Walk mode, calculates when you would need to leave Odegaard to catch that train.
-3. For Bus mode, checks Bus 44, 372, and 45 to find a feeder bus that still makes the train platform in time.
-4. Scores the result by:
+1. Finds the latest train that can still physically make that destination.
+2. For Walk mode (Odegaard start), calculates when you would need to leave Odegaard to catch that train.
+3. For Bus mode (Odegaard start), checks Bus 44, 372, and 45 to find a feeder bus that still makes the train platform in time.
+4. For U-District Station start, skips steps 2–3 entirely and goes straight to train selection.
+5. For Train only destination, skips the final-bus lookup and ends the card at the train arrival.
+6. Scores the result by:
    - least waiting at the final station
    - then least extra transfer wait earlier in the trip
    - then earlier departure when otherwise tied
-5. Returns the best option plus one backup when available.
+7. Returns the best option plus one backup when available.
 
 The result is not just “a route.” It is a recommendation for **what to do now**.
 
@@ -67,12 +72,12 @@ That distinction matters:
 
 ## Current Features
 
-- Live commute suggestions based on the selected final bus branch (`333` or `348`)
-- Fully manual refresh with visible report time
-- `Leave within` planner control with `15 / 30 / 45 / 60` minute options
-- Walk and Bus commute modes
-- Final-bus selector in Planner
-- Separate final-bus display toggle in Timings
+- **Starting point selector:** begin planning from Odegaard Library or directly from U-District Station
+- **Destination selector:** `333` (Mountlake Terrace), `348` (Richmond Beach), or `Train only` (Shoreline North)
+- **Departure filter:** `Within N min` (show best options departing soon, with fallback) or `After N min` (show only options at or beyond a threshold)
+- Live commute suggestions with fully manual refresh and visible report time
+- `Leave within / Leave after` planner control with `15 / 30 / 45 / 60` minute options
+- Walk and Bus commute modes (Odegaard start only)
 - Include Line 2 toggle in Planner
 - Saved default setup for favorite planner settings
 - Best option + backup option presentation
@@ -81,10 +86,10 @@ That distinction matters:
   - `Tight`
   - `Okay`
   - `Comfortable`
-- Step-by-step Depart / Arrive breakdown for each option
-- Fallback suggestions when nothing fits inside the selected window
+- Step-by-step Depart / Arrive breakdown for each option as a visual timeline
+- Fallback suggestions when nothing fits inside a `Within` window
 - Local browser snapshots with 24-hour expiry
-- Timings page driven by backend timing constants
+- Timings page driven by backend timing constants with destination-specific display toggle
 - Direction filtering for buses and Bus 45 dropoff validation
 
 ---
@@ -93,18 +98,18 @@ That distinction matters:
 
 The planner is built around this commute shape:
 
-- **Odegaard Library**
-- **U-District Station**
-- **1 Line / 2 Line**
-- **Shoreline South/148th** for `333` or **Shoreline North/185th** for `348`
-- final bus home
+- **Starting point:** Odegaard Library or U-District Station
+- **U-District Station** (1 Line / 2 Line platform)
+- **Shoreline South/148th** for `333`, **Shoreline North/185th** for `348` and `Train only`
+- Final bus home (or ride ends at the train station for `Train only`)
 
 Important route-specific behavior:
 
-- `333` is filtered to the **Mountlake Terrace Station** direction.
-- `348` is filtered to the **Richmond Beach** direction.
+- `333` is filtered to the **Mountlake Terrace Station** direction from Shoreline South Bay 2.
+- `348` is filtered to the **Richmond Beach** direction from Shoreline North Bay 3.
 - Bus direction filtering matters for `44`, `45`, and `372`.
 - Bus `45` trips are additionally checked to make sure they really serve the intended U-District dropoff stop.
+- When starting at **U-District Station**, all feeder-bus logic and walk-time calculations are skipped.
 
 ---
 
@@ -136,9 +141,20 @@ If `OBA_API_KEY` is not set, the app falls back to the shared `TEST` key. That w
 ## API Endpoints
 
 - `GET /` serves the frontend
-- `GET /api/connections?mode=1&stay=30&include_line2=true&final_bus=333` returns live planner suggestions
+- `GET /api/connections?mode=1&stay=30&window_mode=within&include_line2=true&destination=333&start=odegaard` returns live planner suggestions
 - `GET /api/modes` returns available planner modes
-- `GET /api/timings?final_bus=333&include_line2=true` returns the timing data used by the Timings page
+- `GET /api/timings?destination=333&include_line2=true` returns the timing data used by the Timings page
+
+Key `/api/connections` parameters:
+
+| Parameter | Values | Default |
+|-----------|--------|---------|
+| `mode` | `1` (Walk), `2` (Bus) | `1` |
+| `stay` | `15`, `30`, `45`, `60` | `30` |
+| `window_mode` | `within`, `after` | `within` |
+| `include_line2` | `true`, `false` | `true` |
+| `destination` | `333`, `348`, `train_north` | `333` |
+| `start` | `odegaard`, `u_district_station` | `odegaard` |
 
 ---
 
@@ -180,6 +196,8 @@ The repo already includes `vercel.json`.
 - Planner results only change when you press `Refresh`.
 - Timing assumptions live near the top of `app.py`.
 - The Timings page reflects configured assumptions; the Planner reflects live conditions.
+- `Within` mode falls back to the nearest available option if nothing fits the selected window. `After` mode returns an error with no fallback.
+- All saved defaults (including starting point, destination, and departure filter) are persisted to `localStorage`.
 
 ---
 
