@@ -1702,7 +1702,7 @@
   updateTimetableTabButtons();
   initModes().then(() => {
     updatePlannerDescription();
-    markPlannerDirty('Press Refresh to load latest departures.');
+    load();
   });
 
   // ── TIMINGS ──
