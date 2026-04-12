@@ -19,8 +19,9 @@ OBA_BASE = "https://api.pugetsound.onebusaway.org/api/where"
 
 # Stop IDs — verified via OBA stops-for-location API
 STOPS = {
-    "u_district_station":   "40_990002",  # U-District Station, northbound 1 Line
-    "shoreline_south_bay1": "1_81299",    # Shoreline South/148th Station Bay 1
+    "u_district_station":       "40_990002",  # U-District Station, northbound 1 Line
+    "shoreline_south_bay2":     "1_81301",    # Shoreline South/148th Station Bay 2
+    "shoreline_north_bay3":     "1_81243",    # Shoreline North/185th Station Bay 3
 }
 
 # Route IDs — verified via OBA API
@@ -28,6 +29,7 @@ ROUTES = {
     "1_line":  "40_100479",  # Sound Transit 1 Line
     "2_line":  "40_2LINE",   # Sound Transit 2 Line
     "bus_333": "1_102746",
+    "bus_348": "1_100205",
     "bus_44":  "1_100224",
     "bus_45":  "1_100225",
     "bus_372": "1_100214",
@@ -59,16 +61,17 @@ WALK_44_372_TO_1LINE    = 3    # Bay 1 → 1 Line platform (escalator + platform
 WALK_45_TO_1LINE        = 4    # Bay 5 → 1 Line platform (slightly further)
 
 # ── Leg 4: 1 Line ride ────────────────────────────────────────────────────────
-LIGHT_RAIL_TO_SHORELINE = 12   # U-District Station → Shoreline South/148th
+LIGHT_RAIL_TO_SHORELINE_SOUTH = 12  # U-District Station → Shoreline South/148th
+LIGHT_RAIL_TO_SHORELINE_NORTH = 15  # U-District Station → Shoreline North/185th
 
-# ── Leg 5: Shoreline South → Bus 333 bay ──────────────────────────────────────
-WALK_1LINE_TO_BAY       = 2    # physical walk time: exit 1 Line + reach Bus 333 bay
+# ── Leg 5: station → final bus bay ────────────────────────────────────────────
+WALK_1LINE_TO_333_BAY   = 2    # Shoreline South platform → Bus 333 bay
+WALK_1LINE_TO_348_BAY   = 3    # Shoreline North platform → Bus 348 bay
 
-# ── Target idle time at Shoreline South ───────────────────────────────────────
-# How many minutes you want to be at Shoreline South before Bus 333 departs.
-# Increase if you keep missing 333. Decrease if you want less waiting.
-# Minimum should be WALK_1LINE_TO_BAY (2 min) to physically make the connection.
-TARGET_IDLE_AT_SHORELINE = 7
+# ── Target transfer buffer at final station ───────────────────────────────────
+# How many minutes you want to be at the final station before the bus departs.
+TARGET_IDLE_AT_SHORELINE_SOUTH = 7
+TARGET_IDLE_AT_SHORELINE_NORTH = 7
 # ──────────────────────────────────────────────────────────────────────────────
 
 # Bus stops near Odegaard for Mode 2
@@ -121,6 +124,29 @@ MODES = {
 
 app = FastAPI(title="UW Commute Planner")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+FINAL_BUS_OPTIONS = {
+    "333": {
+        "label": "Bus 333",
+        "route_id": ROUTES["bus_333"],
+        "stop_id": STOPS["shoreline_south_bay2"],
+        "headsign": "Mountlake Terrace Station",
+        "train_minutes": LIGHT_RAIL_TO_SHORELINE_SOUTH,
+        "station_label": "Shoreline South/148th",
+        "transfer_walk": WALK_1LINE_TO_333_BAY,
+        "target_idle": TARGET_IDLE_AT_SHORELINE_SOUTH,
+    },
+    "348": {
+        "label": "Bus 348",
+        "route_id": ROUTES["bus_348"],
+        "stop_id": STOPS["shoreline_north_bay3"],
+        "headsign": "Richmond Beach",
+        "train_minutes": LIGHT_RAIL_TO_SHORELINE_NORTH,
+        "station_label": "Shoreline North/185th",
+        "transfer_walk": WALK_1LINE_TO_348_BAY,
+        "target_idle": TARGET_IDLE_AT_SHORELINE_NORTH,
+    },
+}
 
 
 async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
@@ -212,6 +238,7 @@ async def find_connections(
     now: Optional[datetime] = None,
     stay_window: int = 30,
     include_line2: bool = True,
+    final_bus: str = "333",
 ) -> dict:
     """
     stay_window: how many minutes from now you are willing to stay at Odegaard.
@@ -225,34 +252,46 @@ async def find_connections(
     cfg = MODES.get(mode)
     if not cfg:
         return {"error": f"Unknown mode {mode}"}
+    final_cfg = FINAL_BUS_OPTIONS.get(final_bus)
+    if not final_cfg:
+        return {"error": f"Unknown final bus {final_bus}"}
 
     line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
-    mode_description = cfg["description"].replace("1 Line", line_label)
+    mode_description = (
+        cfg["description"]
+        .replace("1 Line", line_label)
+        .replace("Bus 333", final_cfg["label"])
+    )
 
     # Latest acceptable departure from Odegaard based on stay window
     window_deadline = now + timedelta(minutes=stay_window)
 
-    # Minimum walk to physically catch 333 from the train
-    min_buffer = WALK_1LINE_TO_BAY + LIGHT_RAIL_TO_SHORELINE
+    # Minimum time to physically catch the selected final bus from the train
+    min_buffer = final_cfg["transfer_walk"] + final_cfg["train_minutes"]
 
     results_in_window  = []  # connections within stay window
     results_outside    = []  # fallback: best connections outside window
 
     try:
-        buses_333    = by_route(await get_arrivals(STOPS["shoreline_south_bay1"], 120), ROUTES["bus_333"])
+        final_bus_arrivals = by_route(await get_arrivals(final_cfg["stop_id"], 120), final_cfg["route_id"])
+        if final_cfg["headsign"]:
+            final_bus_arrivals = [
+                a for a in final_bus_arrivals
+                if final_cfg["headsign"].lower() in a.get("tripHeadsign", "").lower()
+            ]
         raw_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
         trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
         trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
         all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
 
-        if not buses_333:
-            return {"error": "No Bus 333 departures found in the next 2 hours."}
+        if not final_bus_arrivals:
+            return {"error": f"No {final_cfg['label']} departures found in the next 2 hours."}
 
-        for b333 in buses_333:
-            b333_departs = depart_time(b333)
+        for last_bus in final_bus_arrivals:
+            last_bus_departs = depart_time(last_bus)
 
-            # Hard limit: train must board early enough to physically reach 333
-            hard_latest_board = b333_departs - timedelta(minutes=min_buffer)
+            # Hard limit: train must board early enough to physically reach the final bus
+            hard_latest_board = last_bus_departs - timedelta(minutes=min_buffer)
 
             if mode == 1:
                 train = None
@@ -261,9 +300,9 @@ async def find_connections(
                     t_departs = depart_time(t)
                     if t_departs > hard_latest_board:
                         continue
-                    t_arrive_shoreline = t_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
-                    idle_secs = (b333_departs - t_arrive_shoreline).total_seconds()
-                    # Score: minimize wait at Shoreline South, tiebreak: earlier departure.
+                    t_arrive_shoreline = t_departs + timedelta(minutes=final_cfg["train_minutes"])
+                    idle_secs = (last_bus_departs - t_arrive_shoreline).total_seconds()
+                    # Score: minimize wait at final station, tiebreak: earlier departure.
                     score = (idle_secs, t_departs.timestamp())
                     if best_score is None or score < best_score:
                         best_score = score
@@ -272,12 +311,12 @@ async def find_connections(
                     continue
 
                 train_departs = depart_time(train)
-                arrive_shoreline = train_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
+                arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
                 leave = train_departs - timedelta(minutes=WALK_MODE1_TO_1LINE)
                 if leave < now - timedelta(minutes=1):
                     continue
-                total_mins_m1 = int((b333_departs - leave).total_seconds() / 60)
-                actual_idle_m1 = int((b333_departs - arrive_shoreline).total_seconds() / 60)
+                total_mins_m1 = int((last_bus_departs - leave).total_seconds() / 60)
+                actual_idle_m1 = int((last_bus_departs - arrive_shoreline).total_seconds() / 60)
                 in_window_m1 = leave <= window_deadline
                 entry = {
                     "leave_odegaard":  fmt(leave),
@@ -292,9 +331,9 @@ async def find_connections(
                          "wait_after": None},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
-                         "wait_after": int((b333_departs - arrive_shoreline).total_seconds() / 60)},
-                        {"icon": "bus",  "label": "Bus 333 → Home",
-                         "depart": fmt(b333_departs), "arrive": None,
+                         "wait_after": int((last_bus_departs - arrive_shoreline).total_seconds() / 60)},
+                        {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
+                         "depart": fmt(last_bus_departs), "arrive": None,
                          "wait_after": None},
                     ]
                 }
@@ -310,8 +349,8 @@ async def find_connections(
                     train_departs = depart_time(t)
                     if train_departs > hard_latest_board:
                         continue
-                    arrive_shoreline = train_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
-                    shoreline_wait_secs = (b333_departs - arrive_shoreline).total_seconds()
+                    arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
+                    shoreline_wait_secs = (last_bus_departs - arrive_shoreline).total_seconds()
 
                     for bk in cfg["bus_options"]:
                         r = await best_bus(bk, train_departs, now)
@@ -343,8 +382,8 @@ async def find_connections(
                 train_departs = depart_time(train)
 
                 leave = pick["leave_odegaard"]
-                total_mins_m2 = int((b333_departs - leave).total_seconds() / 60)
-                actual_idle_m2 = int((b333_departs - arrive_shoreline).total_seconds() / 60)
+                total_mins_m2 = int((last_bus_departs - leave).total_seconds() / 60)
+                actual_idle_m2 = int((last_bus_departs - arrive_shoreline).total_seconds() / 60)
                 in_window_m2 = leave <= window_deadline
 
                 # Walk hint: if walking would let you leave closer to now with similar or less idle time
@@ -352,8 +391,8 @@ async def find_connections(
                 walk_mins_until = int((walk_leave - now).total_seconds() / 60)
                 walk_hint = None
                 if walk_mins_until >= -1:  # walk departure is still achievable
-                    walk_idle = int((b333_departs - arrive_shoreline).total_seconds() / 60)
-                    walk_hint = f"Walking now gives similar connection with {walk_idle} min at Shoreline South" if walk_mins_until <= 2 else None
+                    walk_idle = int((last_bus_departs - arrive_shoreline).total_seconds() / 60)
+                    walk_hint = f"Walking now gives similar connection with {walk_idle} min at {final_cfg['station_label']}" if walk_mins_until <= 2 else None
 
                 entry2 = {
                     "leave_odegaard": fmt(leave),
@@ -371,9 +410,9 @@ async def find_connections(
                          "wait_after": max(0, int((train_departs - pick["arrive_1line"]).total_seconds() / 60))},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs),       "arrive": fmt(arrive_shoreline),
-                         "wait_after": int((b333_departs - arrive_shoreline).total_seconds() / 60)},
-                        {"icon": "bus",  "label": "Bus 333 → Home",
-                         "depart": fmt(b333_departs),        "arrive": None},
+                         "wait_after": int((last_bus_departs - arrive_shoreline).total_seconds() / 60)},
+                        {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
+                         "depart": fmt(last_bus_departs),        "arrive": None},
                     ]
                 }
                 if in_window_m2:
@@ -412,40 +451,49 @@ async def find_connections(
         "out_of_window_note": out_of_window_note,
         "stay_window":        stay_window,
         "include_line2":      include_line2,
+        "final_bus":          final_bus,
     }
 
 
 @app.get("/api/connections")
-async def get_connections(mode: int = 1, stay: int = 30, include_line2: bool = True):
-    return await find_connections(mode, stay_window=stay, include_line2=include_line2)
+async def get_connections(mode: int = 1, stay: int = 30, include_line2: bool = True, final_bus: str = "333"):
+    return await find_connections(mode, stay_window=stay, include_line2=include_line2, final_bus=final_bus)
 
 @app.get("/api/modes")
 async def get_modes():
     return {"modes": [{"id": k, "name": v["name"], "description": v["description"]} for k, v in MODES.items()]}
 
 @app.get("/api/timings")
-async def get_timings():
+async def get_timings(final_bus: str = "333"):
     """Returns all timing constants so the frontend can display them without hardcoding."""
+    final_cfg = FINAL_BUS_OPTIONS.get(final_bus, FINAL_BUS_OPTIONS["333"])
+    final_station = final_cfg["station_label"]
+    final_bus_label = final_cfg["label"]
+    final_train_minutes = final_cfg["train_minutes"]
+    final_transfer_minutes = final_cfg["target_idle"]
+
     return {
         "mode1": [
             {"label": "Walk Odegaard → 1 Line platform (incl. buffer)", "min": WALK_MODE1_TO_1LINE,     "type": "walk"},
-            {"label": "1 Line → Shoreline South",                        "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"1 Line → {final_station}",                       "min": final_train_minutes, "type": "rail"},
+            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
         ],
         "bus_44_372": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_44_372,          "type": "walk"},
             {"label": "Bus 44/372 ride → Bay 1",             "min": RIDE_44_372_TO_UDIST,    "type": "bus"},
             {"label": "Walk Bay 1 → 1 Line platform",        "min": WALK_44_372_TO_1LINE,    "type": "walk2"},
-            {"label": "1 Line → Shoreline South",            "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
+            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
         ],
         "bus_45": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_45,              "type": "walk"},
             {"label": "Bus 45 ride → Bay 5",                 "min": RIDE_45_TO_UDIST,        "type": "bus"},
             {"label": "Walk Bay 5 → 1 Line platform",        "min": WALK_45_TO_1LINE,        "type": "walk2"},
-            {"label": "1 Line → Shoreline South",            "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
+            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
         ],
+        "final_bus_label": final_bus_label,
+        "final_station_label": final_station,
     }
 
 @app.get("/", response_class=HTMLResponse)

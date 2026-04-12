@@ -94,6 +94,8 @@
     }
     .idle-chip.active { background: #1a6b4a; color: white; border-color: #1a6b4a; }
     .idle-chip:hover:not(.active) { border-color: #888; }
+    .choice-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .choice-label { font-size: 12px; color: #666; white-space: nowrap; }
     .idle-custom { width: 52px; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1.5px solid #ccc; text-align: center; }
     .idle-custom:focus { outline: none; border-color: #1a6b4a; }
     .idle-unit { font-size: 12px; color: #666; }
@@ -227,12 +229,17 @@
   <!-- ── PLANNER PAGE ── -->
   <div class="page visible" id="page-planner">
     <div class="tabs" id="tabs"></div>
-    <div class="idle-row">
+    <div class="idle-row" id="stay-row">
       <span class="idle-label">Stay at library:</span>
       <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
       <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
       <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
       <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+    </div>
+    <div class="choice-row">
+      <span class="choice-label">Final bus:</span>
+      <button class="idle-chip active" id="final-bus-333" onclick="setFinalBus('333', this)">333</button>
+      <button class="idle-chip" id="final-bus-348" onclick="setFinalBus('348', this)">348</button>
     </div>
     <div class="toggle-panel">
       <div class="toggle-row">
@@ -271,7 +278,7 @@
     <div class="t-section">
       <div class="t-title">Mode 1 — Walk</div>
       <div class="t-route">
-        <div class="t-route-name">Odegaard → U-District Station → 1 Line → Bus 333</div>
+        <div class="t-route-name" id="timings-mode1-name">Odegaard → U-District Station → 1 Line → Bus 333</div>
         <div class="t-route-note">This is a reference timing view. Live planner results may be faster or slower depending on the actual connection.</div>
         <div class="timeline" id="tl-mode1"></div>
         <div class="t-legs" id="lg-mode1"></div>
@@ -303,7 +310,7 @@
       <div class="t-title">Note</div>
       <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px;">
         Walk times include buffer so you don't miss a connection.<br>
-        The final segment includes the planned Shoreline South transfer buffer, not live extra waiting caused by connection timing.<br>
+        The final segment reflects the currently selected final bus branch and includes the planned transfer buffer, not live extra waiting caused by connection timing.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
     </div>
@@ -314,7 +321,9 @@
 <script>
   let mode = 2;
   let includeLine2 = true;
+  let finalBus = '333';
   const LINE2_STORAGE_KEY = 'uw-commute-planner-include-line2';
+  const FINAL_BUS_STORAGE_KEY = 'uw-commute-planner-final-bus';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
   const MAX_SNAPSHOTS = 3;
@@ -350,6 +359,7 @@
 
   const ICONS = { walk: '🚶', bus: '🚌', rail: '🚇' };
   const ICON_CLASS = { walk: 'icon-walk', bus: 'icon-bus', rail: 'icon-rail' };
+  const FINAL_BUS_LABELS = { '333': 'Bus 333', '348': 'Bus 348' };
 
   function renderCard(c, first, index) {
     const urgent = c.minutes_until <= 5;
@@ -373,7 +383,7 @@
         ${first ? '' : '<div class="alt-lbl">Alternative</div>'}
         <div class="leave-lbl">Leave Odegaard</div>
         <div class="leave-time">${c.leave_odegaard}${badge}</div>
-        <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to Bus 333</span></div>
+        <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${FINAL_BUS_LABELS[finalBus]}</span></div>
         <div class="card-report-time">Report time: ${currentReportTimeLabel}</div>
         ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
         <table class="steps">
@@ -412,9 +422,31 @@
     load();
   }
 
+  function updateFinalBusButtons() {
+    document.getElementById('final-bus-333').classList.toggle('active', finalBus === '333');
+    document.getElementById('final-bus-348').classList.toggle('active', finalBus === '348');
+  }
+
+  function loadFinalBusPreference() {
+    const saved = localStorage.getItem(FINAL_BUS_STORAGE_KEY);
+    if (saved === '333' || saved === '348') {
+      finalBus = saved;
+    }
+    updateFinalBusButtons();
+  }
+
+  function setFinalBus(value, btn) {
+    finalBus = value;
+    localStorage.setItem(FINAL_BUS_STORAGE_KEY, value);
+    document.querySelectorAll('#page-planner .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    initTimings();
+    load();
+  }
+
   function setStay(val, btn) {
     stayWindow = val;
-    document.querySelectorAll('.idle-chip').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('#stay-row .idle-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     load();
   }
@@ -565,7 +597,7 @@
     }
 
     try {
-      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}`).then(r => r.json());
+      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}&final_bus=${finalBus}`).then(r => r.json());
       if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
         out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying in 10 seconds…</div>';
@@ -602,6 +634,7 @@
   }
 
   loadLine2Preference();
+  loadFinalBusPreference();
   renderSnapshots();
   initModes().then(load);
 
@@ -640,7 +673,9 @@
 
   async function initTimings() {
     try {
-      const d = await fetch('/api/timings').then(r => r.json());
+      const d = await fetch(`/api/timings?final_bus=${finalBus}`).then(r => r.json());
+      document.getElementById('timings-mode1-name').textContent =
+        `Odegaard → U-District Station → 1 Line → ${d.final_bus_label}`;
       buildTimeline('tl-mode1', 'lg-mode1', 'tot-mode1', d.mode1);
       buildTimeline('tl-44',    'lg-44',    'tot-44',    d.bus_44_372);
       buildTimeline('tl-45',    'lg-45',    'tot-45',    d.bus_45);
