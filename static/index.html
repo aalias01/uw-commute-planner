@@ -14,8 +14,7 @@
       max-width: 560px; margin: 0 auto;
     }
 
-    h1   { font-size: 18px; font-weight: 600; margin-bottom: 2px; }
-    .sub { font-size: 13px; color: #888; margin-bottom: 16px; }
+    h1   { font-size: 18px; font-weight: 600; margin-bottom: 16px; }
 
     /* nav */
     .nav { display: flex; gap: 6px; margin-bottom: 16px; }
@@ -39,10 +38,12 @@
     }
     .tab.active  { background: #1a6b4a; color: white; border-color: #1a6b4a; }
     .tab:hover:not(.active) { border-color: #888; }
-    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; gap: 10px; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; gap: 10px; }
     .desc    { font-size: 12px; color: #666; flex: 1; line-height: 1.4; }
     .refresh { font-size: 12px; padding: 5px 14px; border-radius: 999px; border: 1px solid #ccc; background: white; cursor: pointer; white-space: nowrap; }
     .refresh:hover { border-color: #888; }
+    .refresh:disabled { opacity: 0.65; cursor: default; }
+    .report-time { font-size: 12px; color: #888; margin-bottom: 16px; }
     .card { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 14px 16px; margin-bottom: 10px; }
     .card.top { border-color: #1a6b4a; border-width: 2px; }
     .leave-lbl  { font-size: 10px; font-weight: 600; color: #888; letter-spacing: 0.06em; text-transform: uppercase; }
@@ -89,6 +90,7 @@
     .t-title { font-size: 11px; font-weight: 600; color: #888; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 10px; }
     .t-route { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 14px 16px; margin-bottom: 10px; }
     .t-route-name { font-size: 14px; font-weight: 600; color: #111; margin-bottom: 12px; }
+    .t-route-note { font-size: 12px; color: #777; margin-bottom: 12px; line-height: 1.5; }
 
     /* timeline bar */
     .timeline { display: flex; align-items: stretch; gap: 0; margin-bottom: 6px; border-radius: 6px; overflow: hidden; height: 32px; }
@@ -116,7 +118,6 @@
 <body>
 
   <h1>🚌 UW Commute Planner</h1>
-  <p class="sub" id="clock">—</p>
 
   <div class="nav">
     <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
@@ -135,18 +136,25 @@
     </div>
     <div class="toolbar">
       <span class="desc" id="desc"></span>
-      <button class="refresh" onclick="load()">↻ Refresh</button>
+      <button class="refresh" id="refresh-btn" onclick="load()">↻ Refresh</button>
     </div>
+    <div class="report-time" id="report-time">Report time: —</div>
     <div id="out"><div class="loading">Fetching live data…</div></div>
   </div>
 
   <!-- ── TIMINGS PAGE ── -->
   <div class="page" id="page-timings">
 
+    <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px; margin-bottom:16px;">
+      These graphics show the base route timing assumptions for each option.<br>
+      They do not include extra wait caused by a specific live connection, missed transfer, or schedule gap.
+    </div>
+
     <div class="t-section">
       <div class="t-title">Mode 1 — Walk</div>
       <div class="t-route">
         <div class="t-route-name">Odegaard → U-District Station → 1 Line → Bus 333</div>
+        <div class="t-route-note">This is a reference timing view. Live planner results may be faster or slower depending on the actual connection.</div>
         <div class="timeline" id="tl-mode1"></div>
         <div class="t-legs" id="lg-mode1"></div>
         <div class="t-total" id="tot-mode1"></div>
@@ -158,6 +166,7 @@
 
       <div class="t-route">
         <div class="t-route-name">🚌 Bus 44 / 372</div>
+        <div class="t-route-note">This is a reference timing view. The planner will only show Bus 44 or 372 when a live trip actually lines up.</div>
         <div class="timeline" id="tl-44"></div>
         <div class="t-legs" id="lg-44"></div>
         <div class="t-total" id="tot-44"></div>
@@ -165,6 +174,7 @@
 
       <div class="t-route">
         <div class="t-route-name">🚌 Bus 45</div>
+        <div class="t-route-note">This is a reference timing view. The planner will only show Bus 45 when a live trip actually lines up.</div>
         <div class="timeline" id="tl-45"></div>
         <div class="t-legs" id="lg-45"></div>
         <div class="t-total" id="tot-45"></div>
@@ -175,7 +185,7 @@
       <div class="t-title">Note</div>
       <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px;">
         Walk times include buffer so you don't miss a connection.<br>
-        The final leg (1 Line → Bus 333) includes a 5 min buffer at Shoreline South.<br>
+        The final segment includes the planned Shoreline South transfer buffer, not live extra waiting caused by connection timing.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
     </div>
@@ -184,13 +194,6 @@
 
 <script>
   let mode = 2;
-
-  // clock
-  function tick() {
-    document.getElementById('clock').textContent =
-      new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit', second:'2-digit'});
-  }
-  setInterval(tick, 1000); tick();
 
   // nav
   function showPage(id, btn) {
@@ -254,6 +257,8 @@
   }
 
   let stayWindow = 15;
+  let hasLoadedConnections = false;
+  let activeLoadId = 0;
 
   function setStay(val, btn) {
     stayWindow = val;
@@ -263,27 +268,55 @@
   }
 
   async function load() {
-    document.getElementById('out').innerHTML = '<div class="loading">Fetching live data…</div>';
+    const out = document.getElementById('out');
+    const refreshBtn = document.getElementById('refresh-btn');
+    const reportTime = document.getElementById('report-time');
+    const loadId = ++activeLoadId;
+
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing...';
+
+    if (!hasLoadedConnections) {
+      out.innerHTML = '<div class="loading">Fetching live data…</div>';
+    } else {
+      reportTime.textContent = 'Refreshing departures...';
+    }
+
     try {
       const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}`).then(r => r.json());
+      if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
-        document.getElementById('out').innerHTML = '<div class="warn">⏱ Rate limited. Retrying in 10 seconds…</div>';
+        out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying in 10 seconds…</div>';
+        reportTime.textContent = 'Report time: delayed by rate limit';
         setTimeout(load, 10000); return;
       }
-      if (d.error) { document.getElementById('out').innerHTML = `<div class="error">${d.error}</div>`; return; }
+      if (d.error) {
+        out.innerHTML = `<div class="error">${d.error}</div>`;
+        reportTime.textContent = 'Report time: unavailable';
+        return;
+      }
       document.getElementById('desc').textContent = d.mode_description;
+      reportTime.textContent =
+        `Report time: ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} — refresh for latest departures`;
       let html = '';
       if (d.out_of_window_note) {
         html += `<div class="warn" style="margin-bottom:10px">⚠️ ${d.out_of_window_note}</div>`;
       }
       html += d.connections.map((c, i) => renderCard(c, i === 0)).join('');
-      document.getElementById('out').innerHTML = html;
+      out.innerHTML = html;
+      hasLoadedConnections = true;
     } catch(e) {
-      document.getElementById('out').innerHTML = `<div class="error">Could not reach server. Is the app running?</div>`;
+      if (loadId !== activeLoadId) return;
+      out.innerHTML = `<div class="error">Could not reach server. Is the app running?</div>`;
+      reportTime.textContent = 'Report time: unavailable';
+    } finally {
+      if (loadId === activeLoadId) {
+        refreshBtn.disabled = false;
+        refreshBtn.textContent = '↻ Refresh';
+      }
     }
   }
 
-  setInterval(load, 60000);
   initModes().then(load);
 
   // ── TIMINGS PAGE ──────────────────────────────────────────────────────────────
@@ -316,7 +349,7 @@
       </div>`;
     }).join('');
     document.getElementById(totId).innerHTML =
-      `Total time: <strong>${total} min</strong> (from leaving Odegaard to Bus 333 boarding)`;
+      `Base time: <strong>${total} min</strong> (configured route timing only; extra live connection waits not included)`;
   }
 
   async function initTimings() {

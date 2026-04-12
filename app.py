@@ -377,21 +377,21 @@ async def get_timings():
         "mode1": [
             {"label": "Walk Odegaard → 1 Line platform (incl. buffer)", "min": WALK_MODE1_TO_1LINE,     "type": "walk"},
             {"label": "1 Line → Shoreline South",                        "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + idle at Shoreline South (target {TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
         ],
         "bus_44_372": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_44_372,          "type": "walk"},
             {"label": "Bus 44/372 ride → Bay 1",             "min": RIDE_44_372_TO_UDIST,    "type": "bus"},
             {"label": "Walk Bay 1 → 1 Line platform",        "min": WALK_44_372_TO_1LINE,    "type": "walk2"},
             {"label": "1 Line → Shoreline South",            "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + idle at Shoreline South (target {TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
         ],
         "bus_45": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_45,              "type": "walk"},
             {"label": "Bus 45 ride → Bay 5",                 "min": RIDE_45_TO_UDIST,        "type": "bus"},
             {"label": "Walk Bay 5 → 1 Line platform",        "min": WALK_45_TO_1LINE,        "type": "walk2"},
             {"label": "1 Line → Shoreline South",            "min": LIGHT_RAIL_TO_SHORELINE, "type": "rail"},
-            {"label": f"Walk + idle at Shoreline South (target {TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
+            {"label": f"Walk + planned transfer buffer at Shoreline South ({TARGET_IDLE_AT_SHORELINE} min)", "min": TARGET_IDLE_AT_SHORELINE, "type": "end"},
         ],
     }
 
