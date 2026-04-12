@@ -247,23 +247,38 @@
       font-weight: 600;
     }
     .idle-chip:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
-    .stay-custom-wrap {
+    .stay-custom-chip {
       display: flex;
       align-items: center;
-      gap: 7px;
+      gap: 5px;
       flex-wrap: nowrap;
-    }
-    .stay-custom-input {
-      width: 86px;
-      padding: 7px 12px;
+      padding: 7px 14px;
       border-radius: 999px;
       border: 1.5px solid var(--c-border);
       background: var(--c-surface);
-      color: var(--c-ink);
+      color: var(--c-ink2);
+      transition: all 0.15s;
+      min-width: 124px;
+    }
+    .stay-custom-chip.active {
+      background: var(--c-primary);
+      color: white;
+      border-color: var(--c-primary);
+      font-weight: 600;
+    }
+    .stay-custom-chip:focus-within {
+      border-color: var(--c-primary);
+      box-shadow: 0 0 0 3px rgba(10, 92, 58, 0.12);
+    }
+    .stay-custom-input {
+      width: 60px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: inherit;
       font: inherit;
       font-size: 13px;
       text-align: center;
-      transition: border-color 0.15s, box-shadow 0.15s;
       appearance: textfield;
       -moz-appearance: textfield;
     }
@@ -274,12 +289,14 @@
     }
     .stay-custom-input:focus {
       outline: none;
-      border-color: var(--c-primary);
-      box-shadow: 0 0 0 3px rgba(10, 92, 58, 0.12);
     }
-    .stay-custom-input.active {
-      border-color: var(--c-primary);
-      box-shadow: 0 0 0 3px rgba(10, 92, 58, 0.08);
+    .stay-custom-input::placeholder {
+      color: inherit;
+      opacity: 0.7;
+    }
+    .stay-custom-suffix {
+      font-size: 13px;
+      white-space: nowrap;
     }
 
     /* ─── MODE TABS (JS-generated) ─── */
@@ -682,7 +699,7 @@
           <div class="idle-row" id="stay-row">
             <button class="idle-chip active" id="stay-btn-15" onclick="setStay(15, this)">15 min</button>
             <button class="idle-chip" id="stay-btn-30" onclick="setStay(30, this)">30 min</button>
-            <div class="stay-custom-wrap">
+            <label class="stay-custom-chip" id="stay-custom-chip">
               <input
                 type="number"
                 min="1"
@@ -694,10 +711,11 @@
                 placeholder="Custom"
                 aria-label="Custom minutes"
                 oninput="handleCustomStayInput()"
+                onblur="applyCustomStay()"
                 onkeydown="handleCustomStayKeydown(event)"
               />
-              <button class="idle-chip" id="stay-custom-btn" onclick="applyCustomStay()">Custom min</button>
-            </div>
+              <span class="stay-custom-suffix">min</span>
+            </label>
           </div>
         </div>
       </div>
@@ -956,12 +974,11 @@
       const btn = document.getElementById(`stay-btn-${value}`);
       if (btn) btn.classList.toggle('active', value === stayWindow);
     });
-    const customBtn = document.getElementById('stay-custom-btn');
+    const customChip = document.getElementById('stay-custom-chip');
     const customInput = document.getElementById('stay-custom-input');
     const isCustom = !presetValues.includes(stayWindow);
-    if (customBtn) customBtn.classList.toggle('active', isCustom);
+    if (customChip) customChip.classList.toggle('active', isCustom);
     if (customInput) {
-      customInput.classList.toggle('active', isCustom);
       customInput.value = isCustom ? stayWindow : '';
     }
   }
@@ -1115,10 +1132,16 @@
   function handleCustomStayInput() {
     const customInput = document.getElementById('stay-custom-input');
     if (!customInput) return;
-    const customBtn = document.getElementById('stay-custom-btn');
+    const customChip = document.getElementById('stay-custom-chip');
+    const normalized = normalizeStayInputValue(customInput.value);
     const hasValue = customInput.value.trim().length > 0;
-    customInput.classList.toggle('active', hasValue && ![15, 30].includes(stayWindow));
-    if (customBtn) customBtn.classList.toggle('active', hasValue && ![15, 30].includes(stayWindow));
+    if (customChip) customChip.classList.toggle('active', hasValue);
+    if (normalized === null) return;
+    if (normalized === stayWindow && ![15, 30].includes(stayWindow)) return;
+    stayWindow = normalized;
+    customInput.value = normalized;
+    updateStayButtons();
+    markPlannerDirty();
   }
   function applyCustomStay() {
     const customInput = document.getElementById('stay-custom-input');
