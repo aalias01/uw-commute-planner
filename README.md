@@ -8,13 +8,14 @@ A real-time commute planner that tells you when to leave Odegaard Library to cat
 
 ## What It Does
 
-The app fetches live bus and train times from the [OneBusAway Puget Sound API](https://pugetsound.onebusaway.org) and works backwards from upcoming Bus 333 departures.
+The app fetches live bus and train times from the [OneBusAway Puget Sound API](https://pugetsound.onebusaway.org) and works backwards from the selected final bus departure.
 
 It helps answer one simple question: **when should I leave Odegaard right now?**
 
-Current route:
+Current route branches:
 
-**Odegaard Library → U-District Station → 1 Line → Shoreline South/148th → Bus 333**
+- **Odegaard Library → U-District Station → 1 Line / 2 Line → Shoreline South/148th → Bus 333**
+- **Odegaard Library → U-District Station → 1 Line / 2 Line → Shoreline North/185th → Bus 348**
 
 The app currently supports two commute modes:
 
@@ -25,15 +26,23 @@ The app currently supports two commute modes:
 
 ## Current Features
 
-- Live commute suggestions based on upcoming Bus 333 departures
-- Stay-window planning with `15 / 30 / 45 / 60` minute options
+- Live commute suggestions based on the selected final bus branch (`333` or `348`)
+- Manual refresh with visible report time
+- `Leave within` planning with `15 / 30 / 45 / 60` minute options
 - Walk and Bus commute modes
+- Final-bus selector in Planner (`333` / `348`)
+- Separate final-bus display toggle in Timings
+- Include Line 2 toggle in Planner
+- Saved default setup for preferred planner choices
 - Realtime vs scheduled badges on each connection card
+- Best option + backup option presentation
+- Transfer cushion messaging with reliability labels (`Tight`, `Okay`, `Comfortable`)
 - Step-by-step Depart / Arrive breakdown for every connection
 - Fallback suggestions when nothing fits inside the selected stay window
+- Local snapshot saving in the browser with 24-hour expiry
 - Timings page driven by backend timing constants
-- Auto-refresh every 60 seconds
-- Rate-limit retry handling for the shared `TEST` API key
+- Timings page reflects `1 Line / 2 Line` display and the selected final-bus branch
+- Direction filtering for buses plus Bus 45 dropoff validation
 
 ---
 
@@ -65,9 +74,9 @@ Open [http://localhost:8000](http://localhost:8000).
 ## API Endpoints
 
 - `GET /` serves the frontend
-- `GET /api/connections?mode=1&stay=30` returns current route suggestions
+- `GET /api/connections?mode=1&stay=30&include_line2=true&final_bus=333` returns current route suggestions
 - `GET /api/modes` returns the available planner modes
-- `GET /api/timings` returns the timing values used by the Timings page
+- `GET /api/timings?final_bus=333&include_line2=true` returns the timing values used by the Timings page
 
 ---
 
@@ -104,7 +113,8 @@ The repo already includes `vercel.json`.
 ## Notes
 
 - The app is built around one personal commute, so the routing logic is intentionally specific rather than generic.
-- Line 2 support exists in code behind a single `ENABLE_2_LINE` toggle.
+- Line 2 support is controlled from the Planner UI and defaults to on.
+- Planner results only change when you press `Refresh`.
 - Direction filtering for buses matters a lot because OneBusAway returns both directions at the same stop.
 
 ---
