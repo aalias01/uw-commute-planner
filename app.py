@@ -253,6 +253,7 @@ async def find_connections(
     mode: int,
     now: Optional[datetime] = None,
     stay_window: int = 30,
+    window_mode: str = "within",
     include_line2: bool = True,
     destination: str = "333",
     start: str = "odegaard",
@@ -274,6 +275,8 @@ async def find_connections(
         return {"error": f"Unknown destination {destination}"}
     if start not in {"odegaard", "u_district_station"}:
         return {"error": f"Unknown start {start}"}
+    if window_mode not in {"within", "after"}:
+        return {"error": f"Unknown window mode {window_mode}"}
 
     line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
     if start == "u_district_station":
@@ -292,14 +295,17 @@ async def find_connections(
                 .replace("Bus 333", final_cfg["label"])
             )
 
-    # Latest acceptable departure from Odegaard based on stay window
-    window_deadline = now + timedelta(minutes=stay_window)
+    # User-selected departure window boundary
+    window_boundary = now + timedelta(minutes=stay_window)
 
     # Minimum time to physically catch the selected destination from the train
     min_buffer = final_cfg["transfer_walk"] + final_cfg["train_minutes"]
 
     results_in_window  = []  # connections within stay window
     results_outside    = []  # fallback: best connections outside window
+
+    def matches_window(dt: datetime) -> bool:
+        return dt <= window_boundary if window_mode == "within" else dt >= window_boundary
 
     try:
         raw_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
@@ -352,7 +358,7 @@ async def find_connections(
                 total_mins_station = int(((last_bus_departs or arrive_shoreline) - train_departs).total_seconds() / 60)
                 actual_idle_station = int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_station = actual_idle_station - final_cfg["transfer_walk"]
-                in_window_station = train_departs <= window_deadline
+                in_window_station = matches_window(train_departs)
                 entry = {
                     "leave_odegaard":  fmt(train_departs),
                     "minutes_until":   max(0, int((train_departs - now).total_seconds() / 60)),
@@ -413,7 +419,7 @@ async def find_connections(
                 total_mins_m1 = int((((last_bus_departs or arrive_shoreline)) - leave).total_seconds() / 60)
                 actual_idle_m1 = int((((last_bus_departs or arrive_shoreline)) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_m1 = actual_idle_m1 - final_cfg["transfer_walk"]
-                in_window_m1 = leave <= window_deadline
+                in_window_m1 = matches_window(leave)
                 entry = {
                     "leave_odegaard":  fmt(leave),
                     "minutes_until":   max(0, int((leave - now).total_seconds() / 60)),
@@ -495,7 +501,7 @@ async def find_connections(
                 total_mins_m2 = int((((last_bus_departs or arrive_shoreline)) - leave).total_seconds() / 60)
                 actual_idle_m2 = int((((last_bus_departs or arrive_shoreline)) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_m2 = actual_idle_m2 - final_cfg["transfer_walk"]
-                in_window_m2 = leave <= window_deadline
+                in_window_m2 = matches_window(leave)
 
                 # Walk hint: if walking would let you leave closer to now with similar or less idle time
                 walk_leave = train_departs - timedelta(minutes=WALK_MODE1_TO_1LINE)
@@ -562,11 +568,14 @@ async def find_connections(
 
     out_of_window_note = None
     if not final:
-        # No connections in window — show best outside with note
-        results_outside.sort(key=lambda x: x[0])
-        final = [e for _, e in results_outside[:2]]
-        if final:
-            out_of_window_note = f"No connections found within {stay_window} min departure window — showing nearest available"
+        if window_mode == "within":
+            # No connections in window — show best outside with note
+            results_outside.sort(key=lambda x: x[0])
+            final = [e for _, e in results_outside[:2]]
+            if final:
+                out_of_window_note = f"No connections found within {stay_window} min departure window — showing nearest available"
+        else:
+            return {"error": f"No viable connections found after {stay_window} min. Try a shorter delay or a different destination."}
 
     if not final:
         return {"error": "No viable connections found. Try refreshing."}
@@ -576,6 +585,7 @@ async def find_connections(
         "connections":        final,
         "out_of_window_note": out_of_window_note,
         "stay_window":        stay_window,
+        "window_mode":        window_mode,
         "include_line2":      include_line2,
         "destination":        destination,
         "start":              start,
@@ -583,8 +593,8 @@ async def find_connections(
 
 
 @app.get("/api/connections")
-async def get_connections(mode: int = 1, stay: int = 30, include_line2: bool = True, destination: str = "333", start: str = "odegaard"):
-    return await find_connections(mode, stay_window=stay, include_line2=include_line2, destination=destination, start=start)
+async def get_connections(mode: int = 1, stay: int = 30, window_mode: str = "within", include_line2: bool = True, destination: str = "333", start: str = "odegaard"):
+    return await find_connections(mode, stay_window=stay, window_mode=window_mode, include_line2=include_line2, destination=destination, start=start)
 
 @app.get("/api/modes")
 async def get_modes():

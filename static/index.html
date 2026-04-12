@@ -30,7 +30,29 @@
     .page.visible { display: block; }
 
     /* ── PLANNER PAGE ── */
-    .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+    .planner-controls {
+      background: linear-gradient(180deg, #fbfbfb 0%, #f3f5f3 100%);
+      border: 1px solid #e0e5e1;
+      border-radius: 18px;
+      padding: 16px 16px 12px;
+      margin-bottom: 16px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+    .control-group {
+      margin-bottom: 14px;
+    }
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+    .group-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #7b857d;
+      margin-bottom: 8px;
+    }
+    .tabs { display: flex; gap: 8px; margin-bottom: 0; }
     .tab {
       padding: 7px 18px; border-radius: 999px;
       border: 1.5px solid #ccc; background: white;
@@ -144,7 +166,7 @@
     .warn  { background: #fff8e1; border: 1px solid #f0c040; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: #7a5f00; }
     .loading { text-align: center; padding: 40px; color: #aaa; font-size: 14px; }
     .walk-hint { font-size: 12px; color: #7a5f00; background: #fff8e1; border: 1px solid #f0c040; border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
-    .idle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .idle-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; flex-wrap: wrap; }
     .idle-label { font-size: 12px; color: #666; white-space: nowrap; }
     .idle-chip {
       padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 500;
@@ -152,7 +174,7 @@
     }
     .idle-chip.active { background: #1a6b4a; color: white; border-color: #1a6b4a; }
     .idle-chip:hover:not(.active) { border-color: #888; }
-    .choice-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .choice-row { display: flex; align-items: center; gap: 8px; margin-bottom: 0; flex-wrap: wrap; }
     .choice-label { font-size: 12px; color: #666; white-space: nowrap; }
     .idle-custom { width: 52px; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1.5px solid #ccc; text-align: center; }
     .idle-custom:focus { outline: none; border-color: #1a6b4a; }
@@ -308,24 +330,42 @@
 
   <!-- ── PLANNER PAGE ── -->
   <div class="page visible" id="page-planner">
-    <div class="choice-row">
-      <span class="choice-label">Starting from:</span>
-      <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
-      <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
-    </div>
-    <div class="tabs" id="tabs"></div>
-    <div class="idle-row" id="stay-row">
-      <span class="idle-label">Leave within:</span>
-      <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
-      <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
-      <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
-      <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
-    </div>
-    <div class="choice-row">
-      <span class="choice-label">Destination:</span>
-      <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">333</button>
-      <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">348</button>
-      <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
+    <div class="planner-controls">
+      <div class="control-group">
+        <div class="group-label">Starting Point</div>
+        <div class="choice-row">
+          <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
+          <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
+        </div>
+      </div>
+      <div class="control-group" id="mode-group">
+        <div class="group-label">Mode</div>
+        <div class="tabs" id="tabs"></div>
+      </div>
+      <div class="control-group">
+        <div class="group-label">Departure Filter</div>
+        <div class="choice-row">
+          <button class="idle-chip active" id="window-mode-within" onclick="setWindowMode('within', this)">Within</button>
+          <button class="idle-chip" id="window-mode-after" onclick="setWindowMode('after', this)">After</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="group-label" id="stay-label">Leave within</div>
+        <div class="idle-row" id="stay-row">
+          <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
+          <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
+          <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
+          <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+        </div>
+      </div>
+      <div class="control-group">
+        <div class="group-label">Destination</div>
+        <div class="choice-row">
+          <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">333</button>
+          <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">348</button>
+          <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
+        </div>
+      </div>
     </div>
     <div class="toggle-panel">
       <div class="toggle-row">
@@ -420,6 +460,7 @@
 <script src="/static/html2canvas.min.js"></script>
 <script>
   let mode = 2;
+  let windowMode = 'within';
   let includeLine2 = true;
   let destination = '333';
   let timingsDestination = '333';
@@ -479,14 +520,26 @@
     document.getElementById('desc').textContent = desc;
   }
 
+  function updateWindowModeButtons() {
+    document.getElementById('window-mode-within').classList.toggle('active', windowMode === 'within');
+    document.getElementById('window-mode-after').classList.toggle('active', windowMode === 'after');
+    document.getElementById('stay-label').textContent = windowMode === 'within' ? 'Leave within:' : 'Leave after:';
+  }
+
+  function setWindowMode(value, btn) {
+    windowMode = value;
+    updateWindowModeButtons();
+    markPlannerDirty();
+  }
+
   function updateStartPointButtons() {
     document.getElementById('start-odegaard').classList.toggle('active', startPoint === 'odegaard');
     document.getElementById('start-u-district-station').classList.toggle('active', startPoint === 'u_district_station');
   }
 
   function updateModeVisibility() {
-    const tabs = document.getElementById('tabs');
-    tabs.style.display = startPoint === 'u_district_station' ? 'none' : 'flex';
+    const modeGroup = document.getElementById('mode-group');
+    modeGroup.style.display = startPoint === 'u_district_station' ? 'none' : 'block';
   }
 
   function setStartPoint(value, btn) {
@@ -521,7 +574,8 @@
       : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
     const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
     const destinationLabel = setup.destination === 'train_north' ? 'Train only' : `Bus ${setup.destination}`;
-    return `${modeLabel} · Leave within ${setup.stayWindow} min · ${destinationLabel} · ${line2Label}`;
+    const windowLabel = setup.windowMode === 'after' ? `Leave after ${setup.stayWindow} min` : `Leave within ${setup.stayWindow} min`;
+    return `${modeLabel} · ${windowLabel} · ${destinationLabel} · ${line2Label}`;
   }
 
   function readSavedDefaultSetup() {
@@ -531,10 +585,12 @@
       const parsed = JSON.parse(raw);
       if (!parsed || typeof parsed !== 'object') return null;
       if (![1, 2].includes(parsed.mode)) return null;
+      if (!['within', 'after'].includes(parsed.windowMode || 'within')) return null;
       if (!['odegaard', 'u_district_station'].includes(parsed.startPoint || 'odegaard')) return null;
       if (![15, 30, 45, 60].includes(parsed.stayWindow)) return null;
       if (!['333', '348', 'train_north'].includes(parsed.destination || parsed.finalBus || '333')) return null;
       if (typeof parsed.includeLine2 !== 'boolean') return null;
+      parsed.windowMode = parsed.windowMode || 'within';
       parsed.startPoint = parsed.startPoint || 'odegaard';
       parsed.destination = parsed.destination || parsed.finalBus || '333';
       return parsed;
@@ -564,7 +620,7 @@
   }
 
   function saveCurrentAsDefault() {
-    const setup = { mode, stayWindow, destination, includeLine2, startPoint };
+    const setup = { mode, stayWindow, windowMode, destination, includeLine2, startPoint };
     localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
     renderSavedDefaultStatus();
   }
@@ -582,6 +638,7 @@
     }
     mode = saved.mode;
     stayWindow = saved.stayWindow;
+    windowMode = saved.windowMode;
     destination = saved.destination;
     includeLine2 = saved.includeLine2;
     startPoint = saved.startPoint;
@@ -839,7 +896,7 @@
     }
 
     try {
-      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`).then(r => r.json());
+      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`).then(r => r.json());
       if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
         out.innerHTML = '<div class="warn">⏱ Rate limited. Try Refresh again in a few seconds.</div>';
@@ -882,6 +939,7 @@
   loadDestinationPreference();
   updateStartPointButtons();
   updateModeVisibility();
+  updateWindowModeButtons();
   updateStayButtons();
   renderSavedDefaultStatus();
   renderSnapshots();
