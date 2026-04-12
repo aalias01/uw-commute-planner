@@ -116,6 +116,8 @@ python app.py
 
 Open [http://localhost:8000](http://localhost:8000).
 
+> **API key:** The app works without one using the shared `TEST` key, but for reliable use you can request a free key via [Sound Transit's Open Transit Data portal](https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd).
+
 ---
 
 ## API Endpoints

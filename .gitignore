@@ -1,20 +1,33 @@
-# Python bytecode
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*.pyo
+*.pyd
 
-# Documents and reports
-*.pdf
-*.docx
-*.csv
-docs_local/
-
-# Environments and Secrets
+# Environments
 .env
 .venv/
+venv/
 env/
 
-# IDE and OS files
+# Secrets
+*.key
+*.secret
+
+# Local docs (not for repo)
+docs_local/
+
+# Markdown preview artifacts
+README.html
+README_files/
+
+# IDE
 .vscode/
 .idea/
+
+# OS
 .DS_Store
 Thumbs.db
+
+# Git helper script (local use only)
+push.sh
