@@ -317,11 +317,16 @@ async def find_connections(
                     continue
                 total_mins_m1 = int((last_bus_departs - leave).total_seconds() / 60)
                 actual_idle_m1 = int((last_bus_departs - arrive_shoreline).total_seconds() / 60)
+                transfer_cushion_m1 = actual_idle_m1 - final_cfg["transfer_walk"]
                 in_window_m1 = leave <= window_deadline
                 entry = {
                     "leave_odegaard":  fmt(leave),
                     "minutes_until":   max(0, int((leave - now).total_seconds() / 60)),
                     "total_mins":      total_mins_m1,
+                    "transfer_wait_mins": actual_idle_m1,
+                    "transfer_cushion_mins": transfer_cushion_m1,
+                    "transfer_station_label": final_cfg["station_label"],
+                    "transfer_walk_mins": final_cfg["transfer_walk"],
                     "walk_hint":       None,
                     "is_realtime":     train.get("predicted", False),
                     "mode":            1,
@@ -384,6 +389,7 @@ async def find_connections(
                 leave = pick["leave_odegaard"]
                 total_mins_m2 = int((last_bus_departs - leave).total_seconds() / 60)
                 actual_idle_m2 = int((last_bus_departs - arrive_shoreline).total_seconds() / 60)
+                transfer_cushion_m2 = actual_idle_m2 - final_cfg["transfer_walk"]
                 in_window_m2 = leave <= window_deadline
 
                 # Walk hint: if walking would let you leave closer to now with similar or less idle time
@@ -398,6 +404,10 @@ async def find_connections(
                     "leave_odegaard": fmt(leave),
                     "minutes_until":  max(0, int((leave - now).total_seconds() / 60)),
                     "total_mins":     total_mins_m2,
+                    "transfer_wait_mins": actual_idle_m2,
+                    "transfer_cushion_mins": transfer_cushion_m2,
+                    "transfer_station_label": final_cfg["station_label"],
+                    "transfer_walk_mins": final_cfg["transfer_walk"],
                     "walk_hint":      walk_hint,
                     "is_realtime":    pick["is_realtime"] or train.get("predicted", False),
                     "mode":           2,
@@ -470,27 +480,27 @@ async def get_timings(final_bus: str = "333"):
     final_station = final_cfg["station_label"]
     final_bus_label = final_cfg["label"]
     final_train_minutes = final_cfg["train_minutes"]
-    final_transfer_minutes = final_cfg["target_idle"]
+    final_walk_minutes = final_cfg["transfer_walk"]
 
     return {
         "mode1": [
             {"label": "Walk Odegaard → 1 Line platform (incl. buffer)", "min": WALK_MODE1_TO_1LINE,     "type": "walk"},
             {"label": f"1 Line → {final_station}",                       "min": final_train_minutes, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
+            {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "bus_44_372": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_44_372,          "type": "walk"},
             {"label": "Bus 44/372 ride → Bay 1",             "min": RIDE_44_372_TO_UDIST,    "type": "bus"},
             {"label": "Walk Bay 1 → 1 Line platform",        "min": WALK_44_372_TO_1LINE,    "type": "walk2"},
             {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
+            {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "bus_45": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_45,              "type": "walk"},
             {"label": "Bus 45 ride → Bay 5",                 "min": RIDE_45_TO_UDIST,        "type": "bus"},
             {"label": "Walk Bay 5 → 1 Line platform",        "min": WALK_45_TO_1LINE,        "type": "walk2"},
             {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
-            {"label": f"Walk + planned transfer buffer at {final_station} ({final_transfer_minutes} min)", "min": final_transfer_minutes, "type": "end"},
+            {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "final_bus_label": final_bus_label,
         "final_station_label": final_station,

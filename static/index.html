@@ -66,6 +66,25 @@
     .countdown { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1a6b4a; }
     .countdown.now { color: #c0392b; }
     .card-report-time { font-size: 11px; color: #888; margin-bottom: 12px; }
+    .cushion-note {
+      font-size: 12px;
+      border-radius: 8px;
+      padding: 7px 10px;
+      margin-bottom: 10px;
+      border: 1px solid #dfe7df;
+      background: #f7faf7;
+      color: #34503a;
+    }
+    .cushion-note.caution {
+      background: #fff8e1;
+      border-color: #f0c040;
+      color: #7a5f00;
+    }
+    .cushion-note.warning {
+      background: #fff0f0;
+      border-color: #f09595;
+      color: #a32d2d;
+    }
     .alt-lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; }
     .steps { width: 100%; border-collapse: collapse; }
     .steps thead th { font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: 0.05em; text-transform: uppercase; padding: 0 0 6px; border-bottom: 1px solid #f0f0f0; }
@@ -272,7 +291,7 @@
 
     <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px; margin-bottom:16px;">
       These graphics show the base route timing assumptions for each option.<br>
-      They do not include extra wait caused by a specific live connection, missed transfer, or schedule gap.
+      They do not include extra wait or cushion created by a specific live connection, missed transfer, or schedule gap.
     </div>
 
     <div class="t-section">
@@ -310,7 +329,8 @@
       <div class="t-title">Note</div>
       <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px;">
         Walk times include buffer so you don't miss a connection.<br>
-        The final segment reflects the currently selected final bus branch and includes the planned transfer buffer, not live extra waiting caused by connection timing.<br>
+        The final segment reflects the currently selected final bus branch and shows only the station-to-bus walk time.<br>
+        Live transfer cushion is shown on Planner cards instead of being built into these timing totals.<br>
         To update any value, edit the <strong>TIMING SETTINGS</strong> block in <code>app.py</code>.
       </div>
     </div>
@@ -351,6 +371,7 @@
         mode = m.id;
         el.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
+        updatePlannerDescription();
         load();
       };
       el.appendChild(b);
@@ -360,6 +381,20 @@
   const ICONS = { walk: '🚶', bus: '🚌', rail: '🚇' };
   const ICON_CLASS = { walk: 'icon-walk', bus: 'icon-bus', rail: 'icon-rail' };
   const FINAL_BUS_LABELS = { '333': 'Bus 333', '348': 'Bus 348' };
+  const MODE_DESCRIPTIONS = {
+    1: {
+      333: '14 min walk from Odegaard → U-District Station platform → 1 Line → Bus 333',
+      348: '14 min walk from Odegaard → U-District Station platform → 1 Line → Bus 348',
+    },
+    2: {
+      333: 'Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → 1 Line → Bus 333',
+      348: 'Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → 1 Line → Bus 348',
+    },
+  };
+
+  function updatePlannerDescription() {
+    document.getElementById('desc').textContent = MODE_DESCRIPTIONS[mode]?.[finalBus] || '';
+  }
 
   function renderCard(c, first, index) {
     const urgent = c.minutes_until <= 5;
@@ -367,6 +402,13 @@
     const badge = c.is_realtime
       ? '<span class="badge badge-live">Live</span>'
       : '<span class="badge badge-sched">Scheduled</span>';
+    const cushion = c.transfer_cushion_mins ?? null;
+    const cushionClass = cushion === null ? '' : (cushion <= 0 ? ' warning' : cushion <= 2 ? ' caution' : '');
+    const cushionText = cushion === null
+      ? ''
+      : cushion <= 0
+        ? `No extra cushion at ${c.transfer_station_label} — transfer is tight`
+        : `${cushion} min cushion at ${c.transfer_station_label} after the ${c.transfer_walk_mins} min station walk`;
     let rows = '';
     c.steps.forEach(s => {
       const icon = `<div class="step-icon ${ICON_CLASS[s.icon]}">${ICONS[s.icon]}</div>`;
@@ -385,6 +427,7 @@
         <div class="leave-time">${c.leave_odegaard}${badge}</div>
         <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${FINAL_BUS_LABELS[finalBus]}</span></div>
         <div class="card-report-time">Report time: ${currentReportTimeLabel}</div>
+        ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
         ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
         <table class="steps">
           <thead><tr><th></th><th style="text-align:left"></th><th>Depart</th><th>Arrive</th></tr></thead>
@@ -433,6 +476,7 @@
       finalBus = saved;
     }
     updateFinalBusButtons();
+    updatePlannerDescription();
   }
 
   function setFinalBus(value, btn) {
@@ -440,6 +484,7 @@
     localStorage.setItem(FINAL_BUS_STORAGE_KEY, value);
     document.querySelectorAll('#page-planner .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
+    updatePlannerDescription();
     initTimings();
     load();
   }
@@ -607,6 +652,7 @@
       if (d.error) {
         out.innerHTML = `<div class="error">${d.error}</div>`;
         reportTime.textContent = 'Report time: unavailable';
+        updatePlannerDescription();
         return;
       }
       document.getElementById('desc').textContent = d.mode_description;
@@ -625,6 +671,7 @@
       if (loadId !== activeLoadId) return;
       out.innerHTML = `<div class="error">Could not reach server. Is the app running?</div>`;
       reportTime.textContent = 'Report time: unavailable';
+      updatePlannerDescription();
     } finally {
       if (loadId === activeLoadId) {
         refreshBtn.disabled = false;
@@ -668,7 +715,7 @@
       </div>`;
     }).join('');
     document.getElementById(totId).innerHTML =
-      `Base time: <strong>${total} min</strong> (configured route timing only; extra live connection waits not included)`;
+      `Base time: <strong>${total} min</strong> (physical route timing only; live cushion and extra waits not included)`;
   }
 
   async function initTimings() {
