@@ -356,6 +356,11 @@
 
   <!-- ── TIMINGS PAGE ── -->
   <div class="page" id="page-timings">
+    <div class="choice-row" style="margin-bottom: 14px;">
+      <span class="choice-label">Display final bus:</span>
+      <button class="idle-chip active" id="timings-final-bus-333" onclick="setTimingsFinalBus('333', this)">333</button>
+      <button class="idle-chip" id="timings-final-bus-348" onclick="setTimingsFinalBus('348', this)">348</button>
+    </div>
 
     <div style="font-size:12px; color:#666; line-height:1.6; background:white; border-radius:10px; border:1px solid #e0e0e0; padding:12px 14px; margin-bottom:16px;">
       These graphics show the base route timing assumptions for each option.<br>
@@ -410,6 +415,7 @@
   let mode = 2;
   let includeLine2 = true;
   let finalBus = '333';
+  let timingsFinalBus = '333';
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -462,6 +468,18 @@
 
   function updatePlannerDescription() {
     document.getElementById('desc').textContent = MODE_DESCRIPTIONS[mode]?.[finalBus] || '';
+  }
+
+  function updateTimingsFinalBusButtons() {
+    document.getElementById('timings-final-bus-333').classList.toggle('active', timingsFinalBus === '333');
+    document.getElementById('timings-final-bus-348').classList.toggle('active', timingsFinalBus === '348');
+  }
+
+  function setTimingsFinalBus(value, btn) {
+    timingsFinalBus = value;
+    document.querySelectorAll('#page-timings .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    initTimings();
   }
 
   function formatDefaultSetupSummary(setup) {
@@ -519,11 +537,15 @@
 
   function applySavedDefaultSetup() {
     const saved = readSavedDefaultSetup();
-    if (!saved) return;
+    if (!saved) {
+      timingsFinalBus = finalBus;
+      return;
+    }
     mode = saved.mode;
     stayWindow = saved.stayWindow;
     finalBus = saved.finalBus;
     includeLine2 = saved.includeLine2;
+    timingsFinalBus = saved.finalBus;
   }
 
   function getReliabilityMeta(connection) {
@@ -606,6 +628,7 @@
   function setLine2Preference(enabled) {
     includeLine2 = enabled;
     updateLine2Status();
+    initTimings();
     markPlannerDirty();
   }
 
@@ -624,7 +647,6 @@
     document.querySelectorAll('#page-planner .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     updatePlannerDescription();
-    initTimings();
     markPlannerDirty();
   }
 
@@ -825,6 +847,7 @@
   updateStayButtons();
   renderSavedDefaultStatus();
   renderSnapshots();
+  updateTimingsFinalBusButtons();
   initModes().then(() => {
     updatePlannerDescription();
     markPlannerDirty('Press Refresh to load latest departures.');
@@ -865,9 +888,9 @@
 
   async function initTimings() {
     try {
-      const d = await fetch(`/api/timings?final_bus=${finalBus}`).then(r => r.json());
+      const d = await fetch(`/api/timings?final_bus=${timingsFinalBus}&include_line2=${includeLine2}`).then(r => r.json());
       document.getElementById('timings-mode1-name').textContent =
-        `Odegaard → U-District Station → 1 Line → ${d.final_bus_label}`;
+        `Odegaard → U-District Station → ${d.line_label} → ${d.final_bus_label}`;
       buildTimeline('tl-mode1', 'lg-mode1', 'tot-mode1', d.mode1);
       buildTimeline('tl-44',    'lg-44',    'tot-44',    d.bus_44_372);
       buildTimeline('tl-45',    'lg-45',    'tot-45',    d.bus_45);

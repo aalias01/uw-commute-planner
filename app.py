@@ -474,36 +474,38 @@ async def get_modes():
     return {"modes": [{"id": k, "name": v["name"], "description": v["description"]} for k, v in MODES.items()]}
 
 @app.get("/api/timings")
-async def get_timings(final_bus: str = "333"):
+async def get_timings(final_bus: str = "333", include_line2: bool = True):
     """Returns all timing constants so the frontend can display them without hardcoding."""
     final_cfg = FINAL_BUS_OPTIONS.get(final_bus, FINAL_BUS_OPTIONS["333"])
     final_station = final_cfg["station_label"]
     final_bus_label = final_cfg["label"]
     final_train_minutes = final_cfg["train_minutes"]
     final_walk_minutes = final_cfg["transfer_walk"]
+    line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
 
     return {
         "mode1": [
             {"label": "Walk Odegaard → 1 Line platform (incl. buffer)", "min": WALK_MODE1_TO_1LINE,     "type": "walk"},
-            {"label": f"1 Line → {final_station}",                       "min": final_train_minutes, "type": "rail"},
+            {"label": f"{line_label} → {final_station}",                 "min": final_train_minutes, "type": "rail"},
             {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "bus_44_372": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_44_372,          "type": "walk"},
             {"label": "Bus 44/372 ride → Bay 1",             "min": RIDE_44_372_TO_UDIST,    "type": "bus"},
             {"label": "Walk Bay 1 → 1 Line platform",        "min": WALK_44_372_TO_1LINE,    "type": "walk2"},
-            {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
+            {"label": f"{line_label} → {final_station}",     "min": final_train_minutes, "type": "rail"},
             {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "bus_45": [
             {"label": "Walk Odegaard → stop (incl. buffer)", "min": WALK_TO_45,              "type": "walk"},
             {"label": "Bus 45 ride → Bay 5",                 "min": RIDE_45_TO_UDIST,        "type": "bus"},
             {"label": "Walk Bay 5 → 1 Line platform",        "min": WALK_45_TO_1LINE,        "type": "walk2"},
-            {"label": f"1 Line → {final_station}",           "min": final_train_minutes, "type": "rail"},
+            {"label": f"{line_label} → {final_station}",     "min": final_train_minutes, "type": "rail"},
             {"label": f"Walk {final_station} platform → {final_bus_label} bay", "min": final_walk_minutes, "type": "end"},
         ],
         "final_bus_label": final_bus_label,
         "final_station_label": final_station,
+        "line_label": line_label,
     }
 
 @app.get("/", response_class=HTMLResponse)
