@@ -224,6 +224,9 @@
       flex-wrap: wrap;
       gap: 7px;
     }
+    .idle-row {
+      align-items: center;
+    }
     .idle-chip {
       padding: 7px 15px;
       border-radius: 999px;
@@ -244,6 +247,40 @@
       font-weight: 600;
     }
     .idle-chip:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
+    .stay-custom-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex-wrap: nowrap;
+    }
+    .stay-custom-input {
+      width: 86px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-ink);
+      font: inherit;
+      font-size: 13px;
+      text-align: center;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    .stay-custom-input::-webkit-outer-spin-button,
+    .stay-custom-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .stay-custom-input:focus {
+      outline: none;
+      border-color: var(--c-primary);
+      box-shadow: 0 0 0 3px rgba(10, 92, 58, 0.12);
+    }
+    .stay-custom-input.active {
+      border-color: var(--c-primary);
+      box-shadow: 0 0 0 3px rgba(10, 92, 58, 0.08);
+    }
 
     /* ─── MODE TABS (JS-generated) ─── */
     .tabs { display: flex; gap: 7px; flex-wrap: wrap; }
@@ -643,10 +680,24 @@
         <div class="ctrl-body">
           <div class="ctrl-label" id="stay-label">Leave within:</div>
           <div class="idle-row" id="stay-row">
-            <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
-            <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
-            <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
-            <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+            <button class="idle-chip active" id="stay-btn-15" onclick="setStay(15, this)">15 min</button>
+            <button class="idle-chip" id="stay-btn-30" onclick="setStay(30, this)">30 min</button>
+            <div class="stay-custom-wrap">
+              <input
+                type="number"
+                min="1"
+                max="240"
+                step="1"
+                inputmode="numeric"
+                class="stay-custom-input"
+                id="stay-custom-input"
+                placeholder="Custom"
+                aria-label="Custom minutes"
+                oninput="handleCustomStayInput()"
+                onkeydown="handleCustomStayKeydown(event)"
+              />
+              <button class="idle-chip" id="stay-custom-btn" onclick="applyCustomStay()">Custom min</button>
+            </div>
           </div>
         </div>
       </div>
@@ -884,7 +935,7 @@
       if (![1, 2].includes(parsed.mode)) return null;
       if (!['within', 'after'].includes(parsed.windowMode || 'within')) return null;
       if (!['odegaard', 'u_district_station'].includes(parsed.startPoint || 'odegaard')) return null;
-      if (![15, 30, 45, 60].includes(parsed.stayWindow)) return null;
+      if (!Number.isInteger(parsed.stayWindow) || parsed.stayWindow < 1 || parsed.stayWindow > 240) return null;
       if (!['333', '348', 'train_north'].includes(parsed.destination || parsed.finalBus || '333')) return null;
       if (typeof parsed.includeLine2 !== 'boolean') return null;
       parsed.windowMode   = parsed.windowMode   || 'within';
@@ -900,9 +951,19 @@
       : 'No saved default setup yet.';
   }
   function updateStayButtons() {
-    document.querySelectorAll('#stay-row .idle-chip').forEach(b => {
-      b.classList.toggle('active', Number.parseInt(b.textContent, 10) === stayWindow);
+    const presetValues = [15, 30];
+    presetValues.forEach(value => {
+      const btn = document.getElementById(`stay-btn-${value}`);
+      if (btn) btn.classList.toggle('active', value === stayWindow);
     });
+    const customBtn = document.getElementById('stay-custom-btn');
+    const customInput = document.getElementById('stay-custom-input');
+    const isCustom = !presetValues.includes(stayWindow);
+    if (customBtn) customBtn.classList.toggle('active', isCustom);
+    if (customInput) {
+      customInput.classList.toggle('active', isCustom);
+      customInput.value = isCustom ? stayWindow : '';
+    }
   }
   function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
     currentConnections = [];
@@ -1041,9 +1102,41 @@
   }
   function setStay(val, btn) {
     stayWindow = val;
-    document.querySelectorAll('#stay-row .idle-chip').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    const customInput = document.getElementById('stay-custom-input');
+    if (customInput) customInput.value = '';
+    updateStayButtons();
     markPlannerDirty();
+  }
+  function normalizeStayInputValue(rawValue) {
+    const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(1, Math.min(240, parsed));
+  }
+  function handleCustomStayInput() {
+    const customInput = document.getElementById('stay-custom-input');
+    if (!customInput) return;
+    const customBtn = document.getElementById('stay-custom-btn');
+    const hasValue = customInput.value.trim().length > 0;
+    customInput.classList.toggle('active', hasValue && ![15, 30].includes(stayWindow));
+    if (customBtn) customBtn.classList.toggle('active', hasValue && ![15, 30].includes(stayWindow));
+  }
+  function applyCustomStay() {
+    const customInput = document.getElementById('stay-custom-input');
+    if (!customInput) return;
+    const normalized = normalizeStayInputValue(customInput.value);
+    if (normalized === null) {
+      customInput.focus();
+      return;
+    }
+    stayWindow = normalized;
+    customInput.value = normalized;
+    updateStayButtons();
+    markPlannerDirty();
+  }
+  function handleCustomStayKeydown(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyCustomStay();
   }
 
   // snapshots

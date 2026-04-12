@@ -63,7 +63,7 @@ The app has two views:
 - Destination selector: Bus 333, Bus 348, or Train only
 - Departure filter: `Within N min` (with fallback) or `After N min` (strict, no fallback)
 - Walk and Bus commute modes (Odegaard start only)
-- Leave window: 15, 30, 45, or 60 minutes
+- Leave window: 15 min, 30 min, or a saved custom minute value
 - Include Line 2 toggle
 - Transfer buffer with reliability labels: Tight / Okay / Comfortable
 - Best option + backup option cards with live vs scheduled badge
@@ -134,7 +134,7 @@ Open [http://localhost:8000](http://localhost:8000).
 | Parameter | Values | Default |
 |-----------|--------|---------|
 | `mode` | `1` Walk, `2` Bus | `2` |
-| `stay` | `15` `30` `45` `60` | `30` |
+| `stay` | any integer from `1` to `240` | `30` |
 | `window_mode` | `within` `after` | `within` |
 | `include_line2` | `true` `false` | `true` |
 | `destination` | `333` `348` `train_north` | `333` |
