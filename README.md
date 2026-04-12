@@ -28,7 +28,7 @@ The planner pulls live arrivals from the [OneBusAway Puget Sound API](https://pu
 **Three destinations:**
 
 - **Bus 333** — Shoreline South/148th toward Mountlake Terrace Station
-- **Bus 348** — Shoreline North/185th toward Richmond Beach
+- **Bus 348** — Shoreline North/185th toward Richmond Beach North City
 - **Train only** — ride ends at Shoreline North/185th with no final bus
 
 ---
@@ -54,6 +54,7 @@ The app has two views:
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
 - **Timings** — static route leg breakdown driven by timing constants in `app.py`, with no live data
+- **Timetable** — live departure boards for Link, final buses, and feeder buses, sorted by soonest departure
 
 ---
 
@@ -72,7 +73,8 @@ The app has two views:
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
 - Timings page with destination-specific display toggle
-- Direction filtering for all feeder buses and Bus 45 dropoff validation
+- Timetable page with separate departure boards for Link, final buses, and feeder buses
+- Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
 
 ---
 
@@ -88,7 +90,8 @@ The planner is built around this commute shape:
 Route-specific details:
 
 - Bus 333 is filtered to the Mountlake Terrace Station direction from Shoreline South Bay 2.
-- Bus 348 is filtered to the Richmond Beach direction from Shoreline North Bay 3.
+- Bus 348 is filtered to the Richmond Beach North City direction from Shoreline North Bay 3.
+- Feeder buses use the rider-facing directional stop at 15th Ave NE & NE Campus Pkwy, with headsign mismatches surfaced as warnings instead of silently hidden.
 - Bus 45 trips are validated to confirm they serve the intended U-District dropoff stop.
 
 ---
@@ -127,6 +130,7 @@ Open [http://localhost:8000](http://localhost:8000).
 | `GET /` | Serves the frontend |
 | `GET /api/connections` | Returns live planner suggestions |
 | `GET /api/timings` | Returns timing data for the Timings page |
+| `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
 
 **`/api/connections` parameters:**

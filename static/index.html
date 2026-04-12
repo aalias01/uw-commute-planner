@@ -501,6 +501,11 @@
       background: var(--c-amber-lt); border: 1px solid #fde68a;
       border-radius: 11px; padding: 9px 13px; margin-bottom: 12px; line-height: 1.5;
     }
+    .route-warning {
+      font-size: 12px; color: var(--c-amber);
+      background: var(--c-amber-lt); border: 1px solid #fde68a;
+      border-radius: 11px; padding: 9px 13px; margin-bottom: 12px; line-height: 1.5;
+    }
 
     /* ─── STEP TIMELINE ─── */
     .step-list { list-style: none; position: relative; margin-bottom: 4px; }
@@ -639,6 +644,161 @@
       border-radius: 16px; box-shadow: var(--shadow-sm);
       padding: 13px 15px; margin-bottom: 14px;
     }
+    .board-panel {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: 16px;
+      box-shadow: var(--shadow-sm);
+      padding: 13px 15px;
+      margin-bottom: 14px;
+    }
+    .board-help {
+      font-size: 12px;
+      color: var(--c-muted);
+      line-height: 1.55;
+      margin-top: 8px;
+    }
+    .board-filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 10px;
+    }
+    .board-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--c-border);
+      background: var(--c-panel);
+      color: var(--c-ink2);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      user-select: none;
+    }
+    .board-check input {
+      accent-color: var(--c-primary);
+      width: 14px;
+      height: 14px;
+      margin: 0;
+    }
+    .board-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+    .board-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--c-ink);
+    }
+    .board-time {
+      font-size: 12px;
+      color: var(--c-muted);
+    }
+    .board-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .board-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 12px;
+      padding: 0 4px 6px;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--c-muted2);
+    }
+    .board-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--c-border);
+      border-radius: 15px;
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdfb 100%);
+      padding: 12px 13px;
+    }
+    .board-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .board-route-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .board-route-pill {
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: var(--c-primary-lt);
+      color: var(--c-primary);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .board-status-pill {
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      white-space: nowrap;
+      border: 1px solid var(--c-border);
+      color: var(--c-muted);
+      background: #f4f6f4;
+    }
+    .board-status-pill.live {
+      color: #065f46;
+      background: #d1fae5;
+      border-color: #a7f3d0;
+    }
+    .board-destination {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--c-ink2);
+      line-height: 1.35;
+    }
+    .board-stop {
+      font-size: 12px;
+      color: var(--c-muted);
+      line-height: 1.35;
+    }
+    .board-warning {
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--c-amber);
+      background: var(--c-amber-lt);
+      border: 1px solid #fde68a;
+      border-radius: 10px;
+      padding: 7px 9px;
+      margin-top: 4px;
+    }
+    .board-depart,
+    .board-in {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .board-depart {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--c-ink);
+      letter-spacing: -0.02em;
+    }
+    .board-in {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--c-primary);
+    }
   </style>
 </head>
 <body>
@@ -659,6 +819,7 @@
     <nav class="nav">
       <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
       <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
+      <button class="nav-btn" onclick="showPage('timetable', this)">Timetable</button>
     </nav>
   </div>
 
@@ -837,6 +998,31 @@
 
   </div>
 
+  <!-- ══ TIMETABLE PAGE ══ -->
+  <div class="page" id="page-timetable">
+    <div class="timings-controls">
+      <div class="ctrl-label">Browse departures</div>
+      <div class="chip-row">
+        <button class="idle-chip active" id="timetable-tab-link" onclick="setTimetableTab('link', this)">Link</button>
+        <button class="idle-chip" id="timetable-tab-final-buses" onclick="setTimetableTab('final_buses', this)">Final Buses</button>
+        <button class="idle-chip" id="timetable-tab-feeder-buses" onclick="setTimetableTab('feeder_buses', this)">Feeder Buses</button>
+      </div>
+      <div class="board-help">Quick departure board for the stops and routes you care about, sorted by soonest departure.</div>
+    </div>
+
+    <div class="board-panel">
+      <div class="board-meta">
+        <div>
+          <div class="board-title" id="timetable-title">Link departures</div>
+          <div class="board-time" id="timetable-report-time">Board time: —</div>
+        </div>
+        <button class="refresh" id="timetable-refresh-btn" onclick="loadTimetable()">↻ Refresh board</button>
+      </div>
+      <div class="board-help" id="timetable-help">Upcoming northbound train departures from U-District Station.</div>
+      <div id="timetable-out"><div class="loading">Open the Timetable tab or press Refresh board to load departures.</div></div>
+    </div>
+  </div>
+
 <script src="/static/html2canvas.min.js"></script>
 <script>
   let mode = 2;
@@ -844,6 +1030,16 @@
   let includeLine2 = true;
   let destination = '333';
   let timingsDestination = '333';
+  let timetableTab = 'link';
+  let timetableLoaded = false;
+  let timetableData = null;
+  const timetableFilters = {
+    link: new Set(),
+    final_buses: new Set(),
+    feeder_buses: new Set(),
+  };
+  let plannerRetryTimer = null;
+  let timetableRetryTimer = null;
   let startPoint = 'odegaard';
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
@@ -857,6 +1053,9 @@
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
     document.getElementById('page-' + id).classList.add('visible');
     btn.classList.add('active');
+    if (id === 'timetable' && !timetableLoaded) {
+      loadTimetable();
+    }
   }
 
   async function initModes() {
@@ -936,6 +1135,41 @@
     updateTimingsDestinationButtons();
     initTimings();
   }
+  function updateTimetableTabButtons() {
+    document.getElementById('timetable-tab-link').classList.toggle('active', timetableTab === 'link');
+    document.getElementById('timetable-tab-final-buses').classList.toggle('active', timetableTab === 'final_buses');
+    document.getElementById('timetable-tab-feeder-buses').classList.toggle('active', timetableTab === 'feeder_buses');
+  }
+  function setTimetableTab(value, btn) {
+    timetableTab = value;
+    updateTimetableTabButtons();
+    if (!timetableLoaded) {
+      loadTimetable();
+      return;
+    }
+    renderTimetable();
+  }
+  function ensureTimetableFilters(tabKey, rows) {
+    if (!['link', 'final_buses', 'feeder_buses'].includes(tabKey)) return;
+    const routes = timetableData?.tabs?.[tabKey]?.routes || [...new Set((rows || []).map(row => row.route))];
+    if (!timetableFilters[tabKey].size) {
+      routes.forEach(route => timetableFilters[tabKey].add(route));
+      return;
+    }
+    const next = new Set();
+    routes.forEach(route => {
+      if (timetableFilters[tabKey].has(route)) next.add(route);
+    });
+    if (!next.size) routes.forEach(route => next.add(route));
+    timetableFilters[tabKey] = next;
+  }
+  function toggleTimetableRoute(tabKey, route, checked) {
+    const set = timetableFilters[tabKey];
+    if (!set) return;
+    if (checked) set.add(route);
+    else set.delete(route);
+    renderTimetable();
+  }
 
   function formatDefaultSetupSummary(setup) {
     const startLabel = setup.startPoint === 'u_district_station' ? 'U-District Station' : 'Odegaard';
@@ -991,6 +1225,10 @@
   function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
     currentConnections = [];
     currentReportTimeLabel = '—';
+    if (plannerRetryTimer) {
+      clearTimeout(plannerRetryTimer);
+      plannerRetryTimer = null;
+    }
     document.getElementById('report-time').textContent = 'Report time: —';
     document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
   }
@@ -1042,6 +1280,7 @@
         : 'Best option';
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
+    const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${w}</div>`).join('');
 
     // build steps HTML
     let stepsHtml = '<ul class="step-list">';
@@ -1087,6 +1326,7 @@
           <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
           <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
           ${c.recommendation_note ? `<div class="recommendation-note">${c.recommendation_note}</div>` : ''}
+          ${warningHtml}
           ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
           ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
           ${stepsHtml}
@@ -1272,6 +1512,10 @@
     const refreshBtn = document.getElementById('refresh-btn');
     const reportTime = document.getElementById('report-time');
     const loadId     = ++activeLoadId;
+    if (plannerRetryTimer) {
+      clearTimeout(plannerRetryTimer);
+      plannerRetryTimer = null;
+    }
 
     refreshBtn.disabled = true;
     refreshBtn.textContent = 'Refreshing…';
@@ -1289,8 +1533,12 @@
       if (loadId !== activeLoadId) return;
 
       if (d.error === 'rate_limit') {
-        out.innerHTML = '<div class="warn">⏱ Rate limited. Try Refresh again in a few seconds.</div>';
+        out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying every 3 seconds until live data returns.</div>';
         reportTime.textContent = 'Report time: delayed by rate limit';
+        plannerRetryTimer = window.setTimeout(() => {
+          plannerRetryTimer = null;
+          load();
+        }, 3000);
         return;
       }
       if (d.error) {
@@ -1303,6 +1551,10 @@
       document.getElementById('desc').textContent = d.mode_description;
       currentReportTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       reportTime.textContent = `Report time: ${currentReportTimeLabel} — refresh for latest`;
+      if (plannerRetryTimer) {
+        clearTimeout(plannerRetryTimer);
+        plannerRetryTimer = null;
+      }
       currentConnections = (d.connections || []).slice(0, 3);
 
       let html = '';
@@ -1326,6 +1578,117 @@
     }
   }
 
+  function renderTimetable() {
+    const out = document.getElementById('timetable-out');
+    const title = document.getElementById('timetable-title');
+    const help = document.getElementById('timetable-help');
+    const reportTime = document.getElementById('timetable-report-time');
+    const tab = timetableData?.tabs?.[timetableTab];
+    if (!tab) {
+      out.innerHTML = '<div class="error">Could not load timetable data.</div>';
+      title.textContent = 'Timetable unavailable';
+      help.textContent = '';
+      reportTime.textContent = 'Board time: unavailable';
+      return;
+    }
+    title.textContent = `${tab.label} departures`;
+    help.textContent = tab.help;
+    reportTime.textContent = `Board time: ${timetableData.generated_at} — refresh for latest`;
+    ensureTimetableFilters(timetableTab, tab.rows);
+    const visibleRows = ['link', 'final_buses', 'feeder_buses'].includes(timetableTab)
+      ? tab.rows.filter(row => timetableFilters[timetableTab].has(row.route))
+      : tab.rows;
+    const filterHtml = ['link', 'final_buses', 'feeder_buses'].includes(timetableTab)
+      ? `<div class="board-filters">
+          ${(tab.routes || [...new Set(tab.rows.map(row => row.route))]).map(route => `
+            <label class="board-check">
+              <input
+                type="checkbox"
+                ${timetableFilters[timetableTab].has(route) ? 'checked' : ''}
+                onchange="toggleTimetableRoute('${timetableTab}', '${route}', this.checked)"
+              />
+              <span>${route}</span>
+            </label>
+          `).join('')}
+        </div>`
+      : '';
+    if (!visibleRows.length) {
+      out.innerHTML = `${filterHtml}<div class="loading">${tab.empty_message}</div>`;
+      return;
+    }
+    out.innerHTML = `
+      ${filterHtml}
+      <div class="board-list">
+        <div class="board-head">
+          <div>Route</div>
+          <div>Departs</div>
+          <div>In</div>
+        </div>
+        ${visibleRows.map(row => `
+          <div class="board-row">
+            <div class="board-main">
+              <div class="board-route-row">
+                <span class="board-route-pill">${row.route}</span>
+                <span class="board-status-pill${row.is_realtime ? ' live' : ''}">${row.status}</span>
+              </div>
+              <div class="board-destination">${row.destination}</div>
+              <div class="board-stop">${row.stop}</div>
+              ${row.warning ? `<div class="board-warning">⚠️ ${row.warning}</div>` : ''}
+            </div>
+            <div class="board-depart">${row.depart}</div>
+            <div class="board-in">${row.minutes_until === 0 ? 'Now' : `in ${row.minutes_until} min`}</div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+  async function loadTimetable() {
+    const out = document.getElementById('timetable-out');
+    const refreshBtn = document.getElementById('timetable-refresh-btn');
+    const reportTime = document.getElementById('timetable-report-time');
+    if (timetableRetryTimer) {
+      clearTimeout(timetableRetryTimer);
+      timetableRetryTimer = null;
+    }
+    refreshBtn.disabled = true;
+    refreshBtn.textContent = 'Refreshing…';
+    if (!timetableLoaded) {
+      out.innerHTML = '<div class="loading">Fetching departure board…</div>';
+    } else {
+      reportTime.textContent = 'Board time: refreshing…';
+    }
+    try {
+      const d = await fetch('/api/timetable').then(r => r.json());
+      if (d.error === 'rate_limit') {
+        out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying board every 3 seconds until data returns.</div>';
+        reportTime.textContent = 'Board time: delayed by rate limit';
+        timetableRetryTimer = window.setTimeout(() => {
+          timetableRetryTimer = null;
+          loadTimetable();
+        }, 3000);
+        return;
+      }
+      if (d.error) {
+        out.innerHTML = `<div class="error">${d.error}</div>`;
+        reportTime.textContent = 'Board time: unavailable';
+        return;
+      }
+      timetableData = d;
+      timetableLoaded = true;
+      if (timetableRetryTimer) {
+        clearTimeout(timetableRetryTimer);
+        timetableRetryTimer = null;
+      }
+      renderTimetable();
+    } catch (e) {
+      out.innerHTML = '<div class="error">Could not reach server for timetable data.</div>';
+      reportTime.textContent = 'Board time: unavailable';
+    } finally {
+      refreshBtn.disabled = false;
+      refreshBtn.textContent = '↻ Refresh board';
+    }
+  }
+
   // ── INIT ──
   applySavedDefaultSetup();
   loadLine2Preference();
@@ -1337,6 +1700,7 @@
   renderSavedDefaultStatus();
   renderSnapshots();
   updateTimingsDestinationButtons();
+  updateTimetableTabButtons();
   initModes().then(() => {
     updatePlannerDescription();
     markPlannerDirty('Press Refresh to load latest departures.');

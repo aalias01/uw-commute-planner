@@ -78,20 +78,20 @@ TARGET_IDLE_AT_SHORELINE_NORTH = 7
 BUS_OPTIONS = {
     "bus_44": {
         "label":         "Bus 44",
-        "stop_id":       "1_10914",
+        "stop_id":       "1_29440",
         "stop_name":     "15th Ave NE & NE Campus Pkwy",
         "route_id":      "1_100224",
-        "headsign":      "university",  # matches both "University Of Washington Medical Center" and "University District"
+        "headsign":      "Ballard Wallingford",
         "walk_to_stop":  WALK_TO_44_372,     # includes buffer — leave Odegaard this many mins before bus
         "ride_to_udist": RIDE_44_372_TO_UDIST,
         "walk_to_1line": WALK_44_372_TO_1LINE,
     },
     "bus_372": {
         "label":         "Bus 372",
-        "stop_id":       "1_10914",
+        "stop_id":       "1_29440",
         "stop_name":     "15th Ave NE & NE Campus Pkwy",
         "route_id":      "1_100214",
-        "headsign":      "University District",  # toward U-District, not Bothell
+        "headsign":      "U-District Station",
         "walk_to_stop":  WALK_TO_44_372,     # includes buffer — leave Odegaard this many mins before bus
         "ride_to_udist": RIDE_44_372_TO_UDIST,
         "walk_to_1line": WALK_44_372_TO_1LINE,
@@ -143,7 +143,7 @@ DESTINATION_OPTIONS = {
         "short_label": "348",
         "route_id": ROUTES["bus_348"],
         "stop_id": STOPS["shoreline_north_bay3"],
-        "headsign": "Richmond Beach",
+        "headsign": "Richmond Beach North City",
         "train_minutes": LIGHT_RAIL_TO_SHORELINE_NORTH,
         "station_label": "Shoreline North/185th",
         "transfer_walk": WALK_1LINE_TO_348_BAY,
@@ -195,6 +195,13 @@ def by_route(arrivals: list, route_id: str) -> list:
     return [a for a in arrivals if a.get("routeId") == route_id]
 
 
+def by_route_label(arrivals: list, route_id: str, short_name: str) -> list:
+    return [
+        a for a in arrivals
+        if a.get("routeId") == route_id or str(a.get("routeShortName", "")).strip() == short_name
+    ]
+
+
 def depart_time(a: dict) -> datetime:
     predicted = a.get("predictedDepartureTime", 0)
     scheduled = a.get("scheduledDepartureTime", 0)
@@ -224,15 +231,64 @@ def entry_signature(entry: dict) -> tuple:
     )
 
 
+def headsign_matches(expected: Optional[str], actual: str) -> bool:
+    if not expected:
+        return True
+    actual_l = (actual or "").lower()
+    expected_l = expected.lower()
+    if any(token in expected_l for token in ("university district", "u-district station", "udistrict station")):
+        return "university" in actual_l or "u-district" in actual_l or "udistrict" in actual_l
+    return expected_l in actual_l
+
+
+def headsign_warning(route_label: str, expected: Optional[str], actual: str) -> Optional[str]:
+    if not expected or headsign_matches(expected, actual):
+        return None
+    actual_clean = (actual or "").strip() or "an unexpected destination"
+    return f"{route_label} headsign shows “{actual_clean}”, expected “{expected}”. Check direction before boarding."
+
+
+def format_departure_entry(a: dict, route_label: str, stop_label: str, now: datetime, destination_label: Optional[str] = None) -> dict:
+    departs = depart_time(a)
+    minutes_until = max(0, int((departs - now).total_seconds() / 60))
+    return {
+        "route": route_label,
+        "stop": stop_label,
+        "destination": destination_label or a.get("tripHeadsign", "").strip() or route_label,
+        "depart": fmt(departs),
+        "depart_ts": departs.timestamp(),
+        "minutes_until": minutes_until,
+        "status": "Live" if a.get("predicted", False) else "Scheduled",
+        "is_realtime": a.get("predicted", False),
+    }
+
+
+def dedupe_departure_rows(rows: list[dict]) -> list[dict]:
+    unique = []
+    seen = set()
+    for row in rows:
+        signature = (
+            row.get("route"),
+            row.get("stop"),
+            row.get("destination"),
+            row.get("depart"),
+        )
+        if signature in seen:
+            continue
+        seen.add(signature)
+        unique.append(row)
+    return unique
+
+
 async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) -> Optional[dict]:
     cfg      = BUS_OPTIONS[bus_key]
-    arrivals = by_route(await get_arrivals(cfg["stop_id"]), cfg["route_id"])
+    short_name = cfg["label"].replace("Bus ", "")
+    arrivals = by_route_label(await get_arrivals(cfg["stop_id"]), cfg["route_id"], short_name)
 
     pick = None
+    pick_warning = None
+    pick_score = None
     for a in arrivals:
-        # Filter to correct direction using headsign
-        if cfg["headsign"].lower() not in a.get("tripHeadsign", "").lower():
-            continue
         d = depart_time(a)
         # Must arrive at U-District Station in time to reach the 1 Line platform
         if d + timedelta(minutes=cfg["ride_to_udist"] + cfg["walk_to_1line"]) > must_arrive_udist_by:
@@ -247,7 +303,12 @@ async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) 
                 continue
             if not await trip_serves_stop(trip_id, service_date, cfg["dropoff_stop"]):
                 continue
-        pick = a  # keep updating — want the latest valid one
+        matched_headsign = headsign_matches(cfg["headsign"], a.get("tripHeadsign", ""))
+        score = (1 if matched_headsign else 0, d.timestamp())
+        if pick_score is None or score > pick_score:
+            pick = a
+            pick_score = score
+            pick_warning = headsign_warning(cfg["label"], cfg["headsign"], a.get("tripHeadsign", ""))
 
     if not pick:
         return None
@@ -264,6 +325,7 @@ async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) 
         "arrive_udist":  d + timedelta(minutes=cfg["ride_to_udist"]),
         "arrive_1line":  arrive_1line,
         "is_realtime":   pick.get("predicted", False),
+        "warnings":      [pick_warning] if pick_warning else [],
     }
 
 
@@ -334,17 +396,23 @@ async def find_connections(
         if final_cfg["is_train_only"]:
             final_bus_arrivals = [{"train_only": True}]
         else:
-            final_bus_arrivals = by_route(await get_arrivals(final_cfg["stop_id"], 120), final_cfg["route_id"])
-            if final_cfg["headsign"]:
-                final_bus_arrivals = [
-                    a for a in final_bus_arrivals
-                    if final_cfg["headsign"].lower() in a.get("tripHeadsign", "").lower()
-                ]
+            final_bus_arrivals = by_route_label(
+                await get_arrivals(final_cfg["stop_id"], 120),
+                final_cfg["route_id"],
+                final_cfg["label"].replace("Bus ", ""),
+            )
+            matched_final_bus_arrivals = [
+                a for a in final_bus_arrivals
+                if headsign_matches(final_cfg["headsign"], a.get("tripHeadsign", ""))
+            ]
+            using_fallback_final_bus = bool(final_bus_arrivals) and not matched_final_bus_arrivals
+            final_bus_arrivals = matched_final_bus_arrivals or final_bus_arrivals
 
             if not final_bus_arrivals:
                 return {"error": f"No {final_cfg['label']} departures found in the next 2 hours."}
 
         for last_bus in final_bus_arrivals:
+            final_bus_warning = None
             if final_cfg["is_train_only"]:
                 last_bus_departs = None
                 hard_latest_board = None
@@ -352,6 +420,7 @@ async def find_connections(
                 last_bus_departs = depart_time(last_bus)
                 # Hard limit: train must board early enough to physically reach the final destination
                 hard_latest_board = last_bus_departs - timedelta(minutes=min_buffer)
+                final_bus_warning = headsign_warning(final_cfg["label"], final_cfg["headsign"], last_bus.get("tripHeadsign", "")) if using_fallback_final_bus else None
 
             if start == "u_district_station":
                 train = None
@@ -392,6 +461,7 @@ async def find_connections(
                     "start":           start,
                     "primary_action_label": "Board train",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
+                    "warnings": [final_bus_warning] if final_bus_warning else [],
                     "steps": [
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
@@ -454,6 +524,7 @@ async def find_connections(
                     "start":           start,
                     "primary_action_label": "Leave Odegaard",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
+                    "warnings": [final_bus_warning] if final_bus_warning else [],
                     "steps": [
                         {"icon": "walk", "label": "Walk to U-District Station platform",
                          "depart": fmt(leave), "arrive": fmt(train_departs),
@@ -546,6 +617,7 @@ async def find_connections(
                     "start":          start,
                     "primary_action_label": "Leave Odegaard",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
+                    "warnings": [*pick.get("warnings", []), *([final_bus_warning] if final_bus_warning else [])],
                     "steps": [
                         {"icon": "bus",  "label": f"{pick['label']} from {pick['stop_name']}",
                          "depart": fmt(pick["bus_departs"]), "arrive": fmt(pick["arrive_udist"]),
@@ -710,6 +782,112 @@ async def get_timings(destination: str = "333", include_line2: bool = True):
         "final_station_label": final_station,
         "line_label": line_label,
         "is_train_only": final_cfg["is_train_only"],
+    }
+
+
+@app.get("/api/timetable")
+async def get_timetable():
+    now = datetime.now(SEATTLE)
+
+    try:
+        u_district_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
+        shoreline_south_arrivals = await get_arrivals(STOPS["shoreline_south_bay2"], 120)
+        shoreline_north_arrivals = await get_arrivals(STOPS["shoreline_north_bay3"], 120)
+        feeder_stop_arrivals = await get_arrivals(BUS_OPTIONS["bus_44"]["stop_id"], 120)
+        bus_45_arrivals = await get_arrivals(BUS_OPTIONS["bus_45"]["stop_id"], 120)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            return {"error": "rate_limit"}
+        return {"error": f"API error: {e.response.status_code}"}
+    except httpx.HTTPError as e:
+        return {"error": f"Network error: {str(e)}"}
+
+    link_rows = []
+    for route_key, route_label in (("1_line", "1 Line"), ("2_line", "2 Line")):
+        for arrival in by_route_label(u_district_arrivals, ROUTES[route_key], "1" if route_key == "1_line" else "2"):
+            link_rows.append(format_departure_entry(
+                arrival,
+                route_label,
+                "U-District Station",
+                now,
+                arrival.get("tripHeadsign", "").strip() or "Northbound",
+            ))
+    link_rows.sort(key=lambda row: row["depart_ts"])
+    link_rows = dedupe_departure_rows(link_rows)
+
+    final_rows = []
+    for arrival in by_route_label(shoreline_south_arrivals, ROUTES["bus_333"], "333"):
+        final_rows.append(format_departure_entry(
+            arrival,
+            "Bus 333",
+            "Shoreline South/148th Bay 2",
+            now,
+            "Mountlake Terrace Station",
+        ))
+        final_rows[-1]["warning"] = headsign_warning("Bus 333", "Mountlake Terrace Station", arrival.get("tripHeadsign", ""))
+    for arrival in by_route_label(shoreline_north_arrivals, ROUTES["bus_348"], "348"):
+        final_rows.append(format_departure_entry(
+            arrival,
+            "Bus 348",
+            "Shoreline North/185th Bay 3",
+            now,
+            "Richmond Beach North City",
+        ))
+        final_rows[-1]["warning"] = headsign_warning("Bus 348", "Richmond Beach North City", arrival.get("tripHeadsign", ""))
+    final_rows.sort(key=lambda row: row["depart_ts"])
+    final_rows = dedupe_departure_rows(final_rows)
+
+    feeder_rows = []
+    for bus_key in ("bus_44", "bus_372"):
+        cfg = BUS_OPTIONS[bus_key]
+        short_name = cfg["label"].replace("Bus ", "")
+        for arrival in by_route_label(feeder_stop_arrivals, cfg["route_id"], short_name):
+            feeder_rows.append(format_departure_entry(
+                arrival,
+                cfg["label"],
+                cfg["stop_name"],
+                now,
+                arrival.get("tripHeadsign", "").strip(),
+            ))
+            feeder_rows[-1]["warning"] = headsign_warning(cfg["label"], cfg["headsign"], arrival.get("tripHeadsign", ""))
+    cfg_45 = BUS_OPTIONS["bus_45"]
+    for arrival in by_route_label(bus_45_arrivals, cfg_45["route_id"], "45"):
+        feeder_rows.append(format_departure_entry(
+            arrival,
+            cfg_45["label"],
+            cfg_45["stop_name"],
+            now,
+            arrival.get("tripHeadsign", "").strip(),
+        ))
+        feeder_rows[-1]["warning"] = headsign_warning(cfg_45["label"], cfg_45["headsign"], arrival.get("tripHeadsign", ""))
+    feeder_rows.sort(key=lambda row: row["depart_ts"])
+    feeder_rows = dedupe_departure_rows(feeder_rows)
+
+    return {
+        "generated_at": now.strftime("%I:%M %p"),
+        "tabs": {
+            "link": {
+                "label": "Link",
+                "help": "Upcoming northbound train departures from U-District Station.",
+                "routes": ["1 Line", "2 Line"],
+                "rows": link_rows[:12],
+                "empty_message": "No upcoming Link departures found right now.",
+            },
+            "final_buses": {
+                "label": "Final Buses",
+                "help": "Upcoming departures from the final transfer stops you care about.",
+                "routes": ["Bus 333", "Bus 348"],
+                "rows": final_rows[:24],
+                "empty_message": "No upcoming 333 or 348 departures found right now.",
+            },
+            "feeder_buses": {
+                "label": "Feeder Buses",
+                "help": "Upcoming feeder buses from your Odegaard-area boarding stops.",
+                "routes": ["Bus 44", "Bus 45", "Bus 372"],
+                "rows": feeder_rows[:30],
+                "empty_message": "No upcoming feeder bus departures found right now.",
+            },
+        },
     }
 
 @app.get("/", response_class=HTMLResponse)
