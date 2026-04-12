@@ -206,6 +206,24 @@ def fmt(dt: datetime) -> str:
     return dt.strftime("%I:%M %p")
 
 
+def entry_signature(entry: dict) -> tuple:
+    return (
+        entry.get("leave_odegaard"),
+        entry.get("mode"),
+        entry.get("destination_label"),
+        tuple(
+            (
+                step.get("icon"),
+                step.get("label"),
+                step.get("depart"),
+                step.get("arrive"),
+                step.get("wait_after"),
+            )
+            for step in entry.get("steps", [])
+        ),
+    )
+
+
 async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) -> Optional[dict]:
     cfg      = BUS_OPTIONS[bus_key]
     arrivals = by_route(await get_arrivals(cfg["stop_id"]), cfg["route_id"])
@@ -361,6 +379,7 @@ async def find_connections(
                 in_window_station = matches_window(train_departs)
                 entry = {
                     "leave_odegaard":  fmt(train_departs),
+                    "leave_sort_ts":   train_departs.timestamp(),
                     "minutes_until":   max(0, int((train_departs - now).total_seconds() / 60)),
                     "total_mins":      total_mins_station,
                     "transfer_wait_mins": actual_idle_station,
@@ -422,6 +441,7 @@ async def find_connections(
                 in_window_m1 = matches_window(leave)
                 entry = {
                     "leave_odegaard":  fmt(leave),
+                    "leave_sort_ts":   leave.timestamp(),
                     "minutes_until":   max(0, int((leave - now).total_seconds() / 60)),
                     "total_mins":      total_mins_m1,
                     "transfer_wait_mins": actual_idle_m1,
@@ -513,6 +533,7 @@ async def find_connections(
 
                 entry2 = {
                     "leave_odegaard": fmt(leave),
+                    "leave_sort_ts":  leave.timestamp(),
                     "minutes_until":  max(0, int((leave - now).total_seconds() / 60)),
                     "total_mins":     total_mins_m2,
                     "transfer_wait_mins": actual_idle_m2,
@@ -562,23 +583,73 @@ async def find_connections(
     except httpx.HTTPError as e:
         return {"error": f"Network error: {str(e)}"}
 
-    # Sort in-window results by least idle time, take top 3
+    # Sort optimized candidates by least final wait, then supplement with fallback
+    # options if the active window does not produce two distinct recommendations.
     results_in_window.sort(key=lambda x: x[0])
-    final = [e for _, e in results_in_window[:3]]
+    results_outside.sort(key=lambda x: x[0])
+
+    def dedupe_results(items: list[tuple[int, dict]]) -> list[tuple[int, dict]]:
+        unique = []
+        seen = set()
+        for score, entry in items:
+            signature = entry_signature(entry)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            unique.append((score, entry))
+        return unique
+
+    results_in_window = dedupe_results(results_in_window)
+    results_outside = dedupe_results(results_outside)
+    optimized = [e for _, e in results_in_window[:2]]
 
     out_of_window_note = None
-    if not final:
+    if not optimized:
         if window_mode == "within":
             # No connections in window — show best outside with note
-            results_outside.sort(key=lambda x: x[0])
-            final = [e for _, e in results_outside[:2]]
-            if final:
+            optimized = [e for _, e in results_outside[:2]]
+            if optimized:
                 out_of_window_note = f"No connections found within {stay_window} min departure window — showing nearest available"
         else:
             return {"error": f"No viable connections found after {stay_window} min. Try a shorter delay or a different destination."}
+    elif window_mode == "within" and len(optimized) < 2 and results_outside:
+        seen_signatures = {entry_signature(item) for item in optimized}
+        for _, entry in results_outside:
+            signature = entry_signature(entry)
+            if signature in seen_signatures:
+                continue
+            optimized.append(entry)
+            seen_signatures.add(signature)
+            if len(optimized) == 2:
+                break
 
-    if not final:
+    if not optimized:
         return {"error": "No viable connections found. Try refreshing."}
+
+    final = []
+    for index, entry in enumerate(optimized[:2]):
+        final.append({
+            **entry,
+            "recommendation_type": "best" if index == 0 else "backup",
+        })
+
+    candidate_pool = [e for _, e in results_in_window + results_outside]
+    seen_departures = {entry_signature(item) for item in final}
+    earliest_alternative = None
+    earliest_candidate = min(
+        candidate_pool,
+        key=lambda item: (item.get("leave_sort_ts", float("inf")), item.get("total_mins", 0)),
+        default=None,
+    )
+    if earliest_candidate is not None and entry_signature(earliest_candidate) not in seen_departures:
+        earliest_alternative = {
+            **earliest_candidate,
+            "recommendation_type": "earliest",
+            "recommendation_note": "Earliest viable departure — not optimized for connection wait time.",
+        }
+
+    if earliest_alternative:
+        final.append(earliest_alternative)
 
     return {
         "mode_description":   mode_description,

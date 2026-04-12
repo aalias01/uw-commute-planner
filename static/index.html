@@ -482,6 +482,12 @@
     .countdown { font-size: 14px; font-weight: 700; color: var(--c-primary); margin-bottom: 3px; }
     .countdown.now { color: var(--c-red); }
     .trip-meta { font-size: 12px; color: var(--c-muted); margin-bottom: 12px; }
+    .recommendation-note {
+      font-size: 12px;
+      color: var(--c-muted);
+      margin: -3px 0 12px;
+      line-height: 1.45;
+    }
 
     /* cushion note */
     .cushion-note {
@@ -842,7 +848,7 @@
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
-  const MAX_SNAPSHOTS = 3;
+  const MAX_SNAPSHOTS = 6;
   let currentConnections = [];
   let currentReportTimeLabel = '—';
 
@@ -1029,7 +1035,11 @@
     const cushionText  = cushion === null ? '' : cushion <= 0
       ? `⚠️ No buffer at ${c.transfer_station_label} — tight transfer`
       : `${cushion} min buffer at ${c.transfer_station_label} after ${c.transfer_walk_mins} min walk`;
-    const cardLabel   = first ? 'Best option' : 'Backup option';
+    const cardLabel   = c.recommendation_type === 'earliest'
+      ? 'Earliest departure'
+      : c.recommendation_type === 'backup'
+        ? 'Backup option'
+        : 'Best option';
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
 
@@ -1076,6 +1086,7 @@
           </div>
           <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
           <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
+          ${c.recommendation_note ? `<div class="recommendation-note">${c.recommendation_note}</div>` : ''}
           ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
           ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
           ${stepsHtml}
@@ -1292,7 +1303,7 @@
       document.getElementById('desc').textContent = d.mode_description;
       currentReportTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       reportTime.textContent = `Report time: ${currentReportTimeLabel} — refresh for latest`;
-      currentConnections = (d.connections || []).slice(0, 2);
+      currentConnections = (d.connections || []).slice(0, 3);
 
       let html = '';
       if (d.out_of_window_note) {
