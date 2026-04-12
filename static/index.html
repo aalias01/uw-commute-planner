@@ -4,408 +4,546 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>UW Commute Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --green:        #1a6b4a;
-      --green-light:  #e8f4ed;
-      --green-mid:    #b7dec7;
-      --gray-bg:      #f0f2f0;
-      --gray-border:  #e0e4e0;
-      --gray-panel:   #f7f9f7;
-      --ink:          #111;
-      --ink-2:        #444;
-      --muted:        #777;
-      --muted-light:  #aaa;
-      --white:        #ffffff;
-      --red:          #c0392b;
-      --amber:        #a06000;
+      --c-primary:     #0a5c3a;
+      --c-primary-2:   #0e7a4f;
+      --c-primary-lt:  #e6f4ed;
+      --c-primary-mid: #b3d9c4;
+      --c-accent:      #00c870;
+      --c-bg:          #eef1ee;
+      --c-surface:     #ffffff;
+      --c-border:      #e0e5e0;
+      --c-panel:       #f6f9f6;
+      --c-ink:         #0e1a12;
+      --c-ink2:        #384d3e;
+      --c-muted:       #6b8272;
+      --c-muted2:      #a0b5a8;
+      --c-red:         #dc2626;
+      --c-amber:       #d97706;
+      --c-amber-lt:    #fef3c7;
+      --radius-card:   20px;
+      --shadow-sm:     0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04);
+      --shadow-md:     0 4px 16px rgba(0,0,0,.08), 0 1px 4px rgba(0,0,0,.05);
+      --shadow-top:    0 8px 28px rgba(10,92,58,.16), 0 2px 8px rgba(0,0,0,.06);
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      background: var(--gray-bg);
-      color: var(--ink);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--c-bg);
+      color: var(--c-ink);
       min-height: 100vh;
-      padding: 0 0 40px;
-      max-width: 540px;
+      max-width: 480px;
       margin: 0 auto;
+      padding-bottom: 40px;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* ── HEADER ── */
+    /* ─── HEADER ─── */
     .app-header {
-      background: var(--white);
-      border-bottom: 1px solid var(--gray-border);
+      background: linear-gradient(150deg, #072e1e 0%, #0a5c3a 60%, #0d7549 100%);
       padding: 14px 18px 0;
       position: sticky;
       top: 0;
-      z-index: 10;
+      z-index: 100;
+      border-radius: 0 0 24px 24px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.14);
+      /* keep header visually aligned with page max-width */
+      margin-bottom: 4px;
     }
-    .app-title {
-      font-size: 17px;
-      font-weight: 700;
-      color: var(--ink);
-      letter-spacing: -0.02em;
+    .app-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 12px;
     }
-    .app-title span { color: var(--green); }
+    .brand-icon-wrap {
+      width: 34px;
+      height: 34px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+    .brand-text {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .brand-name {
+      font-size: 16px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+    .brand-sub {
+      font-size: 10px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.5);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .brand-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(0,200,112,0.18);
+      border: 1px solid rgba(0,200,112,0.35);
+      border-radius: 999px;
+      padding: 4px 11px;
+      margin-left: auto;
+    }
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--c-accent);
+      animation: livepulse 2.2s ease-in-out infinite;
+    }
+    @keyframes livepulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.75); }
+    }
+    .live-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--c-accent);
+      letter-spacing: 0.06em;
+    }
+    /* nav tab bar */
     .nav {
       display: flex;
       gap: 0;
-      border-bottom: none;
     }
     .nav-btn {
-      padding: 8px 20px;
+      padding: 10px 24px 11px;
       font-size: 13px;
       font-weight: 600;
       border: none;
       background: transparent;
-      color: var(--muted);
+      color: rgba(255,255,255,0.48);
       cursor: pointer;
       border-bottom: 2.5px solid transparent;
       transition: color 0.15s, border-color 0.15s;
       letter-spacing: -0.01em;
+      font-family: inherit;
+      border-radius: 0;
     }
     .nav-btn.active {
-      color: var(--green);
-      border-bottom-color: var(--green);
+      color: white;
+      border-bottom-color: var(--c-accent);
     }
-    .nav-btn:hover:not(.active) { color: var(--ink); }
+    .nav-btn:hover:not(.active) { color: rgba(255,255,255,0.82); }
 
-    /* ── PAGES ── */
-    .page { display: none; padding: 16px; }
+    /* ─── PAGES ─── */
+    .page { display: none; padding: 14px 14px 24px; }
     .page.visible { display: block; }
 
-    /* ── CHIPS (shared) ── */
-    .chip {
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 500;
-      border: 1.5px solid var(--gray-border);
-      background: var(--white);
-      color: var(--ink-2);
-      cursor: pointer;
-      transition: all 0.15s;
-      white-space: nowrap;
-    }
-    .chip.active {
-      background: var(--green);
-      color: var(--white);
-      border-color: var(--green);
-      font-weight: 600;
-    }
-    .chip:hover:not(.active) { border-color: #999; color: var(--ink); }
-
-    /* keep old class names working (JS references idle-chip) */
-    .idle-chip { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-border); background: var(--white); color: var(--ink-2); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-    .idle-chip.active { background: var(--green); color: var(--white); border-color: var(--green); font-weight: 600; }
-    .idle-chip:hover:not(.active) { border-color: #999; color: var(--ink); }
-
-    /* ── CONTROL PANEL ── */
-    .planner-controls {
-      background: var(--white);
-      border: 1px solid var(--gray-border);
-      border-radius: 16px;
+    /* ─── CONTROLS CARD ─── */
+    .controls-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 10px;
       overflow: hidden;
-      margin-bottom: 12px;
     }
-    .control-group {
-      padding: 12px 16px;
-      border-bottom: 1px solid var(--gray-bg);
+    .ctrl-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--c-bg);
     }
-    .control-group:last-child { border-bottom: none; }
-    .group-label {
+    .ctrl-row:last-child { border-bottom: none; }
+    .ctrl-icon {
+      font-size: 15px;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--c-panel);
+      border-radius: 9px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .ctrl-body { flex: 1; min-width: 0; }
+    .ctrl-label, .group-label {
       font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.09em;
       text-transform: uppercase;
-      color: var(--muted);
-      margin-bottom: 8px;
+      color: var(--c-muted);
+      margin-bottom: 9px;
     }
-    .chip-row {
+
+    /* ─── SEGMENTED CONTROL ─── */
+    .seg-wrap {
+      display: flex;
+      background: #e8ece8;
+      border-radius: 11px;
+      padding: 3px;
+      gap: 3px;
+    }
+    .seg-wrap .idle-chip {
+      flex: 1;
+      text-align: center;
+      border: none;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--c-muted);
+      padding: 7px 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.18s;
+      font-family: inherit;
+      white-space: nowrap;
+    }
+    .seg-wrap .idle-chip.active {
+      background: var(--c-surface);
+      color: var(--c-ink);
+      font-weight: 700;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.04);
+    }
+    .seg-wrap .idle-chip:hover:not(.active) { color: var(--c-ink2); }
+
+    /* ─── CHIP ROW ─── */
+    .chip-row, .idle-row, .choice-row {
       display: flex;
       flex-wrap: wrap;
       gap: 7px;
     }
-    /* Mode tabs use same chip style */
-    .tab { padding: 6px 14px; border-radius: 999px; font-size: 13px; font-weight: 500; border: 1.5px solid var(--gray-border); background: var(--white); color: var(--ink-2); cursor: pointer; transition: all 0.15s; }
-    .tab.active { background: var(--green); color: var(--white); border-color: var(--green); font-weight: 600; }
-    .tab:hover:not(.active) { border-color: #999; color: var(--ink); }
-    .tabs { display: flex; gap: 7px; flex-wrap: wrap; }
-
-    /* ── LINE 2 TOGGLE PANEL ── */
-    .toggle-panel {
-      background: var(--white);
-      border: 1px solid var(--gray-border);
-      border-radius: 16px;
-      padding: 14px 16px;
-      margin-bottom: 12px;
+    .idle-chip {
+      padding: 7px 15px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-ink2);
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      font-family: inherit;
     }
-    .toggle-row {
+    .idle-chip.active {
+      background: var(--c-primary);
+      color: white;
+      border-color: var(--c-primary);
+      font-weight: 600;
+    }
+    .idle-chip:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
+
+    /* ─── MODE TABS (JS-generated) ─── */
+    .tabs { display: flex; gap: 7px; flex-wrap: wrap; }
+    .tab {
+      padding: 7px 15px; border-radius: 999px; font-size: 13px; font-weight: 500;
+      border: 1.5px solid var(--c-border); background: var(--c-surface);
+      color: var(--c-ink2); cursor: pointer; transition: all 0.15s; font-family: inherit;
+    }
+    .tab.active { background: var(--c-primary); color: white; border-color: var(--c-primary); font-weight: 600; }
+    .tab:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
+
+    /* ─── PREF CARD ─── */
+    .pref-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-sm);
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+    .pref-row {
       display: flex;
       align-items: flex-start;
       justify-content: space-between;
       gap: 12px;
     }
-    .toggle-copy { flex: 1; min-width: 0; }
-    .toggle-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
-    .toggle-help { font-size: 12px; color: var(--muted); line-height: 1.5; }
-    .toggle-help a { color: var(--green); font-weight: 600; text-decoration: none; }
-    .toggle-help a:hover { text-decoration: underline; }
-    .switch { position: relative; display: inline-flex; width: 46px; height: 27px; flex-shrink: 0; margin-top: 1px; }
+    .pref-info { flex: 1; min-width: 0; }
+    .pref-title { font-size: 14px; font-weight: 600; color: var(--c-ink); margin-bottom: 3px; }
+    .pref-desc { font-size: 12px; color: var(--c-muted); line-height: 1.55; }
+    .pref-desc a { color: var(--c-primary); font-weight: 600; text-decoration: none; }
+    .pref-desc a:hover { text-decoration: underline; }
+    .toggle-status { font-size: 12px; color: var(--c-muted); margin-top: 9px; }
+
+    /* Toggle switch */
+    .switch { position: relative; display: inline-flex; width: 46px; height: 27px; flex-shrink: 0; margin-top: 2px; }
     .switch input { opacity: 0; width: 0; height: 0; }
     .slider {
       position: absolute; inset: 0; cursor: pointer;
-      background: #d9d9d9; border-radius: 999px;
-      transition: background 0.2s ease;
+      background: #cfd4cf; border-radius: 999px; transition: background 0.22s;
     }
     .slider::before {
       content: ""; position: absolute;
       width: 21px; height: 21px; left: 3px; top: 3px;
       border-radius: 50%; background: white;
-      transition: transform 0.2s ease;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+      transition: transform 0.22s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.22);
     }
-    .switch input:checked + .slider { background: var(--green); }
+    .switch input:checked + .slider { background: var(--c-primary); }
     .switch input:checked + .slider::before { transform: translateX(19px); }
-    .toggle-status { font-size: 12px; color: var(--muted); margin-top: 6px; }
+
     .default-panel {
       display: flex; align-items: center; justify-content: space-between;
       gap: 10px; margin-top: 12px; padding-top: 12px;
-      border-top: 1px solid var(--gray-bg); flex-wrap: wrap;
+      border-top: 1px solid var(--c-bg); flex-wrap: wrap;
     }
-    .default-status { font-size: 12px; color: var(--muted); line-height: 1.5; flex: 1; min-width: 180px; }
+    .default-status { font-size: 12px; color: var(--c-muted); line-height: 1.5; flex: 1; min-width: 160px; }
     .default-actions { display: flex; gap: 7px; flex-wrap: wrap; }
 
-    /* ── TOOLBAR ── */
-    .toolbar {
-      display: flex; align-items: center;
-      justify-content: space-between; margin-bottom: 6px; gap: 10px;
+    /* ─── REFRESH BAR ─── */
+    .refresh-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      gap: 12px;
     }
-    .desc { font-size: 12px; color: var(--muted); flex: 1; line-height: 1.4; }
+    .desc {
+      font-size: 11.5px;
+      color: var(--c-muted);
+      flex: 1;
+      line-height: 1.5;
+      min-width: 0;
+    }
     .refresh {
-      font-size: 12px; font-weight: 600;
-      padding: 6px 16px; border-radius: 999px;
-      border: 1.5px solid var(--green);
-      color: var(--green); background: var(--white);
-      cursor: pointer; white-space: nowrap;
-      transition: all 0.15s;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 20px;
+      border-radius: 999px;
+      border: none;
+      background: var(--c-primary);
+      color: white;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+      font-family: inherit;
+      box-shadow: 0 2px 10px rgba(10,92,58,0.28);
     }
-    .refresh:hover:not(:disabled) { background: var(--green); color: var(--white); }
-    .refresh:disabled { opacity: 0.5; cursor: default; }
-    .report-time { font-size: 11px; color: var(--muted-light); margin-bottom: 14px; }
+    .refresh:hover:not(:disabled) {
+      background: var(--c-primary-2);
+      box-shadow: 0 4px 16px rgba(10,92,58,0.36);
+      transform: translateY(-1px);
+    }
+    .refresh:active:not(:disabled) { transform: translateY(0); }
+    .refresh:disabled { opacity: 0.55; cursor: default; box-shadow: none; transform: none; }
+    .report-time { font-size: 11px; color: var(--c-muted2); margin-bottom: 14px; padding-left: 2px; }
 
-    /* ── RESULT CARDS ── */
+    /* ─── RESULT CARDS ─── */
     .card {
-      background: var(--white);
-      border-radius: 16px;
-      border: 1px solid var(--gray-border);
-      margin-bottom: 10px;
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-md);
+      margin-bottom: 12px;
       overflow: hidden;
+      border: 1px solid var(--c-border);
     }
     .card.top {
-      border-color: var(--green);
-      box-shadow: 0 2px 12px rgba(26, 107, 74, 0.12);
+      border: none;
+      box-shadow: var(--shadow-top);
+      border-left: 4px solid var(--c-primary);
     }
 
-    /* card top band */
+    /* card header band */
     .card-header {
       display: flex;
       align-items: center;
       gap: 8px;
       padding: 10px 16px;
-      border-bottom: 1px solid var(--gray-bg);
-      background: var(--gray-panel);
+      background: var(--c-panel);
+      border-bottom: 1px solid var(--c-bg);
       flex-wrap: wrap;
     }
     .card.top .card-header {
-      background: var(--green-light);
-      border-bottom-color: #d0e8d8;
+      background: var(--c-primary-lt);
+      border-bottom-color: var(--c-primary-mid);
     }
     .card-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       letter-spacing: 0.07em;
       text-transform: uppercase;
-      color: var(--muted);
+      color: var(--c-muted);
+      margin-right: auto;
     }
-    .card.top .card-label { color: var(--green); }
+    .card.top .card-label { color: var(--c-primary); }
 
-    /* realtime badge */
+    /* badges */
     .badge {
-      font-size: 10px; font-weight: 700;
-      padding: 2px 8px; border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 9px;
+      border-radius: 999px;
       letter-spacing: 0.03em;
     }
-    .badge-live  { background: #d6f5e6; color: #085041; }
-    .badge-sched { background: #f0f0f0; color: #888; }
+    .badge-live {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .badge-live::before {
+      content: "●";
+      margin-right: 3px;
+      font-size: 7px;
+      vertical-align: 1px;
+      color: var(--c-accent);
+    }
+    .badge-sched { background: #f0f0f0; color: #777; }
 
-    /* reliability pill */
+    /* reliability pills */
     .reliability-pill {
       font-size: 10px; font-weight: 800;
       letter-spacing: 0.05em; text-transform: uppercase;
-      padding: 3px 9px; border-radius: 999px;
+      padding: 3px 10px; border-radius: 999px;
     }
-    .reliability-pill.tight       { background: #fff0f0; color: #a32d2d; border: 1px solid #f1b3b3; }
-    .reliability-pill.okay        { background: #fff8e1; color: #8a6010; border: 1px solid #f0d17a; }
-    .reliability-pill.comfortable { background: var(--green-light); color: var(--green); border: 1px solid var(--green-mid); }
+    .reliability-pill.tight       { background: #fef2f2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .reliability-pill.okay        { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .reliability-pill.comfortable { background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
 
     /* card body */
-    .card-body { padding: 14px 16px; }
+    .card-body { padding: 16px 16px 12px; }
 
     /* leave time hero */
-    .leave-hero { margin-bottom: 10px; }
-    .leave-lbl  {
-      font-size: 10px; font-weight: 700;
-      color: var(--muted); letter-spacing: 0.08em;
-      text-transform: uppercase; margin-bottom: 2px;
+    .leave-hero { margin-bottom: 6px; }
+    .leave-lbl {
+      font-size: 10px; font-weight: 700; color: var(--c-muted);
+      letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px;
     }
-    .leave-time-row { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-    .leave-time { font-size: 38px; font-weight: 800; color: var(--ink); letter-spacing: -0.03em; line-height: 1; }
-    .card.top .leave-time { color: var(--green); }
-    .countdown {
-      font-size: 13px; font-weight: 600; color: var(--green);
-      margin-bottom: 2px;
+    .leave-time-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+    .leave-time {
+      font-size: 50px; font-weight: 800; color: var(--c-ink);
+      letter-spacing: -0.04em; line-height: 1;
     }
-    .countdown.now { color: var(--red); }
-    .trip-meta { font-size: 12px; color: var(--muted); margin-bottom: 12px; }
+    .card.top .leave-time { color: var(--c-primary); }
+
+    .countdown { font-size: 14px; font-weight: 700; color: var(--c-primary); margin-bottom: 3px; }
+    .countdown.now { color: var(--c-red); }
+    .trip-meta { font-size: 12px; color: var(--c-muted); margin-bottom: 12px; }
 
     /* cushion note */
     .cushion-note {
-      font-size: 12px; border-radius: 10px;
-      padding: 8px 12px; margin-bottom: 12px;
-      border: 1px solid #dfe7df;
-      background: var(--gray-panel); color: #34503a;
-      line-height: 1.45;
+      font-size: 12px; border-radius: 11px; padding: 9px 13px; margin-bottom: 12px;
+      border: 1px solid #c6dece; background: #f0fdf4; color: #166534; line-height: 1.5;
     }
-    .cushion-note.caution { background: #fffbee; border-color: #f0d07a; color: var(--amber); }
-    .cushion-note.warning { background: #fff5f5; border-color: #f09595; color: #a32d2d; }
+    .cushion-note.caution { background: var(--c-amber-lt); border-color: #fde68a; color: var(--c-amber); }
+    .cushion-note.warning { background: #fef2f2; border-color: #fca5a5; color: var(--c-red); }
     .walk-hint {
-      font-size: 12px; color: var(--amber);
-      background: #fffbee; border: 1px solid #f0d07a;
-      border-radius: 10px; padding: 8px 12px; margin-bottom: 12px;
-      line-height: 1.45;
+      font-size: 12px; color: var(--c-amber);
+      background: var(--c-amber-lt); border: 1px solid #fde68a;
+      border-radius: 11px; padding: 9px 13px; margin-bottom: 12px; line-height: 1.5;
     }
 
-    /* ── STEP TIMELINE ── */
+    /* ─── STEP TIMELINE ─── */
     .step-list { list-style: none; position: relative; margin-bottom: 4px; }
     .step-list::before {
       content: "";
       position: absolute;
-      left: 12px; top: 14px;
-      width: 2px;
-      bottom: 14px;
-      background: var(--gray-border);
+      left: 14px; top: 18px; bottom: 18px; width: 2px;
+      background: linear-gradient(to bottom, var(--c-primary-mid), var(--c-border));
       border-radius: 2px;
     }
     .step-item {
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      padding: 7px 0;
-      position: relative;
+      display: flex; align-items: flex-start; gap: 12px; padding: 7px 0; position: relative;
     }
     .step-dot {
-      width: 26px; height: 26px;
-      border-radius: 50%;
+      width: 30px; height: 30px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px; flex-shrink: 0;
-      position: relative; z-index: 1;
+      font-size: 14px; flex-shrink: 0; position: relative; z-index: 1;
     }
-    .dot-walk { background: #e0f0c8; }
-    .dot-bus  { background: #d4e8fc; }
-    .dot-rail { background: #e0deff; }
-    .step-content { flex: 1; min-width: 0; padding-top: 3px; }
-    .step-label-text { font-size: 13px; color: var(--ink-2); line-height: 1.3; }
-    .step-times {
-      display: flex; gap: 10px; margin-top: 2px;
-    }
-    .step-time-val {
-      font-size: 12px; font-weight: 600; color: var(--ink-2);
-    }
-    .step-time-sep { font-size: 12px; color: var(--muted-light); }
-    .step-time-arr { font-size: 12px; color: var(--muted); }
+    .dot-walk { background: #dcfce7; box-shadow: 0 0 0 2.5px #bbf7d0; }
+    .dot-bus  { background: #dbeafe; box-shadow: 0 0 0 2.5px #bfdbfe; }
+    .dot-rail { background: #ede9fe; box-shadow: 0 0 0 2.5px #ddd6fe; }
+    .step-content { flex: 1; min-width: 0; padding-top: 5px; }
+    .step-label-text { font-size: 13px; color: var(--c-ink2); line-height: 1.3; font-weight: 500; }
+    .step-times { display: flex; gap: 8px; margin-top: 3px; align-items: center; }
+    .step-time-val { font-size: 12px; font-weight: 700; color: var(--c-ink2); }
+    .step-time-sep { font-size: 11px; color: var(--c-muted2); }
+    .step-time-arr { font-size: 12px; color: var(--c-muted); }
     .wait-item {
-      display: flex;
-      align-items: center;
-      padding: 2px 0 4px 38px;
+      display: flex; align-items: center; padding: 2px 0 4px 42px;
     }
     .wait-pill {
-      font-size: 11px; color: var(--muted);
-      background: var(--gray-bg);
-      border-radius: 999px; padding: 2px 10px;
-      border: 1px solid var(--gray-border);
+      font-size: 11px; color: var(--c-muted); background: var(--c-bg);
+      border-radius: 999px; padding: 2px 10px; border: 1px solid var(--c-border);
     }
 
     /* card footer */
     .card-footer {
       padding: 10px 16px;
-      border-top: 1px solid var(--gray-bg);
+      border-top: 1px solid var(--c-bg);
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
     }
-    .card-report-time { font-size: 11px; color: var(--muted-light); }
+    .card-report-time { font-size: 11px; color: var(--c-muted2); }
     .card-btn {
       font-size: 12px; font-weight: 500;
-      padding: 6px 14px; border-radius: 999px;
-      border: 1.5px solid var(--gray-border);
-      background: var(--white); cursor: pointer;
-      color: var(--ink-2); transition: all 0.15s;
+      padding: 6px 16px; border-radius: 999px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface); cursor: pointer;
+      color: var(--c-ink2); transition: all 0.15s; font-family: inherit;
     }
-    .card-btn:hover:not(:disabled) { border-color: #999; color: var(--ink); }
+    .card-btn:hover:not(:disabled) { border-color: #888; color: var(--c-ink); }
     .card-btn:disabled { opacity: 0.5; cursor: default; }
 
-    /* ── STATES ── */
+    /* ─── STATES ─── */
     .error {
-      background: #fff5f5; border: 1px solid #f09595;
-      border-radius: 12px; padding: 14px 16px;
-      font-size: 13px; color: #a32d2d; line-height: 1.5;
+      background: #fef2f2; border: 1px solid #fca5a5;
+      border-radius: 14px; padding: 16px 18px;
+      font-size: 13px; color: #b91c1c; line-height: 1.55;
     }
     .warn {
-      background: #fffbee; border: 1px solid #f0d07a;
-      border-radius: 12px; padding: 14px 16px;
-      font-size: 13px; color: var(--amber); line-height: 1.5;
+      background: var(--c-amber-lt); border: 1px solid #fde68a;
+      border-radius: 14px; padding: 16px 18px;
+      font-size: 13px; color: var(--c-amber); line-height: 1.55;
     }
     .loading {
-      text-align: center; padding: 40px 20px;
-      color: var(--muted-light); font-size: 14px;
+      text-align: center; padding: 52px 24px;
+      color: var(--c-muted2); font-size: 14px; line-height: 1.7;
     }
 
-    /* ── SNAPSHOT PANEL ── */
+    /* ─── SNAPSHOTS ─── */
     .snapshot-panel {
-      background: var(--white); border: 1px solid var(--gray-border);
-      border-radius: 16px; padding: 14px 16px; margin-top: 14px;
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-sm);
+      padding: 15px 15px; margin-top: 14px;
     }
-    .snapshot-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 4px; }
-    .snapshot-help { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
-    .snapshot-empty { font-size: 12px; color: var(--muted-light); }
+    .snapshot-title { font-size: 13px; font-weight: 700; color: var(--c-ink); margin-bottom: 4px; }
+    .snapshot-help { font-size: 12px; color: var(--c-muted); line-height: 1.5; margin-bottom: 12px; }
+    .snapshot-empty { font-size: 12px; color: var(--c-muted2); }
     .snapshot-list { display: flex; flex-direction: column; gap: 10px; }
     .snapshot-item {
-      border: 1px solid #eaeaea; border-radius: 12px;
+      border: 1px solid var(--c-border); border-radius: 12px;
       padding: 10px; display: flex; gap: 10px; align-items: flex-start;
     }
-    .snapshot-thumb { width: 88px; border-radius: 8px; border: 1px solid #e0e0e0; flex-shrink: 0; background: #fafafa; }
+    .snapshot-thumb { width: 88px; border-radius: 8px; border: 1px solid var(--c-border); flex-shrink: 0; background: var(--c-panel); }
     .snapshot-meta { flex: 1; min-width: 0; }
-    .snapshot-name { font-size: 12px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
-    .snapshot-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
+    .snapshot-name { font-size: 12px; font-weight: 600; color: var(--c-ink); margin-bottom: 3px; }
+    .snapshot-text { font-size: 12px; color: var(--c-muted); line-height: 1.5; }
     .snapshot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
-    .snapshot-link { font-size: 12px; color: var(--green); text-decoration: none; font-weight: 600; }
+    .snapshot-link { font-size: 12px; color: var(--c-primary); text-decoration: none; font-weight: 600; }
     .snapshot-link:hover { text-decoration: underline; }
 
-    /* ── TIMINGS PAGE ── */
+    /* ─── TIMINGS PAGE ─── */
     .t-section { margin-bottom: 20px; }
     .t-title {
       font-size: 10px; font-weight: 800; letter-spacing: 0.09em;
-      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+      text-transform: uppercase; color: var(--c-muted); margin-bottom: 10px;
     }
     .t-route {
-      background: var(--white); border-radius: 14px;
-      border: 1px solid var(--gray-border);
+      background: var(--c-surface); border-radius: 16px;
+      border: 1px solid var(--c-border); box-shadow: var(--shadow-sm);
       padding: 14px 16px; margin-bottom: 10px;
     }
-    .t-route-name { font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
-    .t-route-note { font-size: 12px; color: var(--muted); margin-bottom: 12px; line-height: 1.5; }
+    .t-route-name { font-size: 14px; font-weight: 700; color: var(--c-ink); margin-bottom: 10px; }
+    .t-route-note { font-size: 12px; color: var(--c-muted); margin-bottom: 12px; line-height: 1.5; }
     .timeline {
       display: flex; align-items: stretch; gap: 0;
       margin-bottom: 10px; border-radius: 8px; overflow: hidden; height: 30px;
@@ -420,39 +558,40 @@
     .tl-walk2 { background: #d8f0b8; color: #345a00; }
     .tl-end   { background: #a8dcc4; color: #054030; }
     .t-legs { display: flex; flex-direction: column; gap: 5px; }
-    .t-leg { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--ink-2); }
+    .t-leg { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--c-ink2); }
     .t-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
     .t-leg-label { flex: 1; }
-    .t-leg-val { font-weight: 700; color: var(--ink); white-space: nowrap; }
+    .t-leg-val { font-weight: 700; color: var(--c-ink); white-space: nowrap; }
     .t-total {
-      font-size: 12px; color: var(--muted);
-      margin-top: 10px; padding-top: 10px;
-      border-top: 1px solid var(--gray-bg);
+      font-size: 12px; color: var(--c-muted); margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--c-bg);
     }
-    .t-total strong { color: var(--ink); }
+    .t-total strong { color: var(--c-ink); }
     .timings-note {
-      font-size: 12px; color: var(--muted); line-height: 1.6;
-      background: var(--white); border-radius: 12px;
-      border: 1px solid var(--gray-border); padding: 12px 14px; margin-bottom: 16px;
+      font-size: 12px; color: var(--c-muted); line-height: 1.65;
+      background: var(--c-surface); border-radius: 14px;
+      border: 1px solid var(--c-border); padding: 13px 15px; margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
     }
-
-    /* ── TIMINGS CONTROLS ── */
     .timings-controls {
-      background: var(--white); border: 1px solid var(--gray-border);
-      border-radius: 14px; padding: 12px 16px; margin-bottom: 14px;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: 16px; box-shadow: var(--shadow-sm);
+      padding: 13px 15px; margin-bottom: 14px;
     }
-    .timings-controls .group-label { margin-bottom: 8px; }
-
-    /* ── IDLE (old name referenced in JS) ── */
-    .idle-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
-    .choice-row { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
   </style>
 </head>
 <body>
 
   <!-- ── HEADER ── -->
   <div class="app-header">
-    <div class="app-title">🚌 UW <span>Commute</span> Planner</div>
+    <div class="app-brand">
+      <div class="brand-icon-wrap">🚌</div>
+      <span class="brand-name">UW Commute</span>
+      <div class="brand-pill">
+        <span class="live-dot"></span>
+        <span class="live-label">LIVE</span>
+      </div>
+    </div>
     <nav class="nav">
       <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
       <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
@@ -462,57 +601,72 @@
   <!-- ══ PLANNER PAGE ══ -->
   <div class="page visible" id="page-planner">
 
-    <!-- controls panel -->
-    <div class="planner-controls">
+    <!-- Controls card -->
+    <div class="controls-card">
 
-      <div class="control-group">
-        <div class="group-label">Starting Point</div>
-        <div class="chip-row">
-          <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
-          <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
+      <div class="ctrl-row">
+        <div class="ctrl-icon">📍</div>
+        <div class="ctrl-body">
+          <div class="ctrl-label">Starting Point</div>
+          <div class="seg-wrap">
+            <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
+            <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
+          </div>
         </div>
       </div>
 
-      <div class="control-group" id="mode-group">
-        <div class="group-label">Mode</div>
-        <div class="tabs" id="tabs"></div>
-      </div>
-
-      <div class="control-group">
-        <div class="group-label">Departure Filter</div>
-        <div class="chip-row">
-          <button class="idle-chip active" id="window-mode-within" onclick="setWindowMode('within', this)">Within</button>
-          <button class="idle-chip" id="window-mode-after" onclick="setWindowMode('after', this)">After</button>
+      <div class="ctrl-row" id="mode-group">
+        <div class="ctrl-icon">🚶</div>
+        <div class="ctrl-body">
+          <div class="ctrl-label">Mode</div>
+          <div class="tabs" id="tabs"></div>
         </div>
       </div>
 
-      <div class="control-group">
-        <div class="group-label" id="stay-label">Leave within:</div>
-        <div class="idle-row" id="stay-row">
-          <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
-          <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
-          <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
-          <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+      <div class="ctrl-row">
+        <div class="ctrl-icon">🔍</div>
+        <div class="ctrl-body">
+          <div class="ctrl-label">Departure Filter</div>
+          <div class="seg-wrap">
+            <button class="idle-chip active" id="window-mode-within" onclick="setWindowMode('within', this)">Within</button>
+            <button class="idle-chip" id="window-mode-after" onclick="setWindowMode('after', this)">After</button>
+          </div>
         </div>
       </div>
 
-      <div class="control-group">
-        <div class="group-label">Destination</div>
-        <div class="chip-row">
-          <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">333</button>
-          <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">348</button>
-          <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
+      <div class="ctrl-row">
+        <div class="ctrl-icon">⏱</div>
+        <div class="ctrl-body">
+          <div class="ctrl-label" id="stay-label">Leave within:</div>
+          <div class="idle-row" id="stay-row">
+            <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
+            <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
+            <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
+            <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ctrl-row" style="border-bottom:none">
+        <div class="ctrl-icon">🏁</div>
+        <div class="ctrl-body">
+          <div class="ctrl-label">Destination</div>
+          <div class="chip-row">
+            <button class="idle-chip active" id="destination-333" onclick="setDestination('333', this)">Bus 333</button>
+            <button class="idle-chip" id="destination-348" onclick="setDestination('348', this)">Bus 348</button>
+            <button class="idle-chip" id="destination-train-north" onclick="setDestination('train_north', this)">Train only</button>
+          </div>
         </div>
       </div>
 
     </div>
 
-    <!-- line 2 + defaults panel -->
-    <div class="toggle-panel">
-      <div class="toggle-row">
-        <div class="toggle-copy">
-          <div class="toggle-title">Include Line 2</div>
-          <div class="toggle-help">Turn off if Line 2 isn't reaching your station. <a href="https://www.soundtransit.org/ride-with-us/service-alerts" target="_blank" rel="noopener noreferrer">Check Sound Transit alerts</a>.</div>
+    <!-- Line 2 + defaults -->
+    <div class="pref-card">
+      <div class="pref-row">
+        <div class="pref-info">
+          <div class="pref-title">Include Line 2</div>
+          <div class="pref-desc">Disable during Line 2 disruptions. <a href="https://www.soundtransit.org/ride-with-us/service-alerts" target="_blank" rel="noopener noreferrer">Check Sound Transit alerts</a>.</div>
         </div>
         <label class="switch" aria-label="Include Line 2">
           <input type="checkbox" id="line2-toggle" checked onchange="setLine2Preference(this.checked)">
@@ -529,32 +683,33 @@
       </div>
     </div>
 
-    <!-- toolbar -->
-    <div class="toolbar">
+    <!-- Toolbar -->
+    <div class="refresh-bar">
       <span class="desc" id="desc"></span>
       <button class="refresh" id="refresh-btn" onclick="load()">↻ Refresh</button>
     </div>
     <div class="report-time" id="report-time">Report time: —</div>
 
-    <!-- results -->
+    <!-- Results -->
     <div id="out"><div class="loading">Press Refresh to load latest departures.</div></div>
 
-    <!-- snapshots -->
+    <!-- Snapshots -->
     <div class="snapshot-panel">
       <div class="snapshot-title">Saved Snapshots</div>
       <div class="snapshot-help">Save a screenshot of a plan card for quick reference. Snapshots stay on this device for 24 hours.</div>
       <div id="snapshot-list" class="snapshot-empty">No saved snapshots yet.</div>
     </div>
+
   </div>
 
   <!-- ══ TIMINGS PAGE ══ -->
   <div class="page" id="page-timings">
 
     <div class="timings-controls">
-      <div class="group-label">Display destination:</div>
+      <div class="ctrl-label">Display destination:</div>
       <div class="chip-row">
-        <button class="idle-chip active" id="timings-destination-333" onclick="setTimingsDestination('333', this)">333</button>
-        <button class="idle-chip" id="timings-destination-348" onclick="setTimingsDestination('348', this)">348</button>
+        <button class="idle-chip active" id="timings-destination-333" onclick="setTimingsDestination('333', this)">Bus 333</button>
+        <button class="idle-chip" id="timings-destination-348" onclick="setTimingsDestination('348', this)">Bus 348</button>
         <button class="idle-chip" id="timings-destination-train-north" onclick="setTimingsDestination('train_north', this)">Train only</button>
       </div>
     </div>
@@ -677,7 +832,7 @@
     document.getElementById('start-u-district-station').classList.toggle('active', startPoint === 'u_district_station');
   }
   function updateModeVisibility() {
-    document.getElementById('mode-group').style.display = startPoint === 'u_district_station' ? 'none' : 'block';
+    document.getElementById('mode-group').style.display = startPoint === 'u_district_station' ? 'none' : 'flex';
   }
   function setStartPoint(value, btn) {
     startPoint = value;
@@ -1020,7 +1175,7 @@
 
       let html = '';
       if (d.out_of_window_note) {
-        html += `<div class="warn" style="margin-bottom:10px">⚠️ ${d.out_of_window_note}</div>`;
+        html += `<div class="warn" style="margin-bottom:12px">⚠️ ${d.out_of_window_note}</div>`;
       }
       html += currentConnections.map((c, i) => renderCard(c, i === 0, i)).join('');
       out.innerHTML = html;
