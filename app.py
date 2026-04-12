@@ -254,32 +254,28 @@ async def find_connections(
             # Hard limit: train must board early enough to physically reach 333
             hard_latest_board = b333_departs - timedelta(minutes=min_buffer)
 
-            # Find the train with least idle time at Shoreline South
-            # that also lets you leave Odegaard (within window if possible)
-            train = None
-            best_score = None
-            for t in all_trains:
-                t_departs = depart_time(t)
-                if t_departs > hard_latest_board:
-                    continue
-                t_arrive_shoreline = t_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
-                idle_secs = (b333_departs - t_arrive_shoreline).total_seconds()
-                # Score: minimize idle time (less is better), tiebreak: later departure
-                score = (idle_secs, -t_departs.timestamp())
-                if best_score is None or score < best_score:
-                    best_score = score
-                    train = t
-            if not train:
-                continue
-
-            train_departs    = depart_time(train)
-            arrive_shoreline = train_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
-
             if mode == 1:
+                train = None
+                best_score = None
+                for t in all_trains:
+                    t_departs = depart_time(t)
+                    if t_departs > hard_latest_board:
+                        continue
+                    t_arrive_shoreline = t_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
+                    idle_secs = (b333_departs - t_arrive_shoreline).total_seconds()
+                    # Score: minimize wait at Shoreline South, tiebreak: earlier departure.
+                    score = (idle_secs, t_departs.timestamp())
+                    if best_score is None or score < best_score:
+                        best_score = score
+                        train = t
+                if not train:
+                    continue
+
+                train_departs = depart_time(train)
+                arrive_shoreline = train_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
                 leave = train_departs - timedelta(minutes=WALK_MODE1_TO_1LINE)
                 if leave < now - timedelta(minutes=1):
                     continue
-                arrive_platform = train_departs
                 total_mins_m1 = int((b333_departs - leave).total_seconds() / 60)
                 actual_idle_m1 = int((b333_departs - arrive_shoreline).total_seconds() / 60)
                 in_window_m1 = leave <= window_deadline
@@ -308,20 +304,43 @@ async def find_connections(
                     results_outside.append((actual_idle_m1, entry))
 
             elif mode == 2:
-                pick = None
-                for bk in cfg["bus_options"]:
-                    r = await best_bus(bk, train_departs, now)
-                    if r is None:
+                best_combo = None
+                best_score = None
+                for t in all_trains:
+                    train_departs = depart_time(t)
+                    if train_departs > hard_latest_board:
                         continue
-                    if r["leave_odegaard"] < now - timedelta(minutes=1):
-                        continue
-                    # Critical: bus must arrive at 1 Line platform before train departs
-                    if r["arrive_1line"] > train_departs:
-                        continue
-                    if pick is None or r["leave_odegaard"] > pick["leave_odegaard"]:
-                        pick = r
-                if not pick:
+                    arrive_shoreline = train_departs + timedelta(minutes=LIGHT_RAIL_TO_SHORELINE)
+                    shoreline_wait_secs = (b333_departs - arrive_shoreline).total_seconds()
+
+                    for bk in cfg["bus_options"]:
+                        r = await best_bus(bk, train_departs, now)
+                        if r is None:
+                            continue
+                        if r["leave_odegaard"] < now - timedelta(minutes=1):
+                            continue
+                        # Critical: bus must arrive at 1 Line platform before train departs
+                        if r["arrive_1line"] > train_departs:
+                            continue
+
+                        transfer_wait_secs = max(0, (train_departs - r["arrive_1line"]).total_seconds())
+                        # Score: minimize Shoreline South wait first, then other transfer wait,
+                        # then prefer the earlier viable departure from Odegaard.
+                        score = (
+                            shoreline_wait_secs,
+                            transfer_wait_secs,
+                            r["leave_odegaard"].timestamp(),
+                            train_departs.timestamp(),
+                        )
+                        if best_score is None or score < best_score:
+                            best_score = score
+                            best_combo = (t, r, arrive_shoreline)
+
+                if not best_combo:
                     continue
+
+                train, pick, arrive_shoreline = best_combo
+                train_departs = depart_time(train)
 
                 leave = pick["leave_odegaard"]
                 total_mins_m2 = int((b333_departs - leave).total_seconds() / 60)
