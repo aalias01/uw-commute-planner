@@ -46,6 +46,18 @@
     .report-time { font-size: 12px; color: #888; margin-bottom: 16px; }
     .card { background: white; border-radius: 12px; border: 1px solid #e0e0e0; padding: 14px 16px; margin-bottom: 10px; }
     .card.top { border-color: #1a6b4a; border-width: 2px; }
+    .card-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .card-btn {
+      font-size: 12px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #ccc;
+      background: white;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .card-btn:hover:not(:disabled) { border-color: #888; }
+    .card-btn:disabled { opacity: 0.65; cursor: default; }
     .leave-lbl  { font-size: 10px; font-weight: 600; color: #888; letter-spacing: 0.06em; text-transform: uppercase; }
     .leave-time { font-size: 28px; font-weight: 700; color: #111; }
     .badge { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 500; margin-left: 8px; }
@@ -53,6 +65,7 @@
     .badge-sched { background: #f0f0f0; color: #888; }
     .countdown { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1a6b4a; }
     .countdown.now { color: #c0392b; }
+    .card-report-time { font-size: 11px; color: #888; margin-bottom: 12px; }
     .alt-lbl { font-size: 11px; color: #aaa; margin-bottom: 6px; }
     .steps { width: 100%; border-collapse: collapse; }
     .steps thead th { font-size: 10px; font-weight: 600; color: #aaa; letter-spacing: 0.05em; text-transform: uppercase; padding: 0 0 6px; border-bottom: 1px solid #f0f0f0; }
@@ -134,6 +147,43 @@
     .switch input:checked + .slider { background: #1a6b4a; }
     .switch input:checked + .slider::before { transform: translateX(20px); }
     .toggle-status { font-size: 12px; color: #666; }
+    .snapshot-panel {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-top: 16px;
+    }
+    .snapshot-title { font-size: 13px; font-weight: 600; color: #222; margin-bottom: 4px; }
+    .snapshot-help { font-size: 12px; color: #666; line-height: 1.5; margin-bottom: 12px; }
+    .snapshot-empty { font-size: 12px; color: #888; }
+    .snapshot-list { display: flex; flex-direction: column; gap: 10px; }
+    .snapshot-item {
+      border: 1px solid #ececec;
+      border-radius: 10px;
+      padding: 10px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .snapshot-thumb {
+      width: 92px;
+      border-radius: 8px;
+      border: 1px solid #e5e5e5;
+      flex-shrink: 0;
+      background: #fafafa;
+    }
+    .snapshot-meta { flex: 1; min-width: 0; }
+    .snapshot-name { font-size: 12px; font-weight: 600; color: #222; margin-bottom: 4px; }
+    .snapshot-text { font-size: 12px; color: #666; line-height: 1.5; }
+    .snapshot-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .snapshot-link {
+      font-size: 12px;
+      color: #1a6b4a;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .snapshot-link:hover { text-decoration: underline; }
 
     /* ── TIMINGS PAGE ── */
     .t-section { margin-bottom: 20px; }
@@ -203,6 +253,11 @@
     </div>
     <div class="report-time" id="report-time">Report time: —</div>
     <div id="out"><div class="loading">Fetching live data…</div></div>
+    <div class="snapshot-panel">
+      <div class="snapshot-title">Saved Snapshots</div>
+      <div class="snapshot-help">Save a screenshot of a plan card for quick reference. Snapshots stay on this device for 24 hours and then expire automatically.</div>
+      <div id="snapshot-list" class="snapshot-empty">No saved snapshots yet.</div>
+    </div>
   </div>
 
   <!-- ── TIMINGS PAGE ── -->
@@ -255,10 +310,16 @@
 
   </div>
 
+<script src="/static/html2canvas.min.js"></script>
 <script>
   let mode = 2;
   let includeLine2 = true;
   const LINE2_STORAGE_KEY = 'uw-commute-planner-include-line2';
+  const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
+  const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
+  const MAX_SNAPSHOTS = 3;
+  let currentConnections = [];
+  let currentReportTimeLabel = '—';
 
   // nav
   function showPage(id, btn) {
@@ -290,7 +351,7 @@
   const ICONS = { walk: '🚶', bus: '🚌', rail: '🚇' };
   const ICON_CLASS = { walk: 'icon-walk', bus: 'icon-bus', rail: 'icon-rail' };
 
-  function renderCard(c, first) {
+  function renderCard(c, first, index) {
     const urgent = c.minutes_until <= 5;
     const countText = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
     const badge = c.is_realtime
@@ -308,16 +369,20 @@
       }
     });
     return `
-      <div class="card${first ? ' top' : ''}">
+      <div class="card${first ? ' top' : ''}" id="plan-card-${index}">
         ${first ? '' : '<div class="alt-lbl">Alternative</div>'}
         <div class="leave-lbl">Leave Odegaard</div>
         <div class="leave-time">${c.leave_odegaard}${badge}</div>
         <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to Bus 333</span></div>
+        <div class="card-report-time">Report time: ${currentReportTimeLabel}</div>
         ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
         <table class="steps">
           <thead><tr><th></th><th style="text-align:left"></th><th>Depart</th><th>Arrive</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
+        <div class="card-actions">
+          <button class="card-btn" id="save-btn-${index}" onclick="saveSnapshot(${index})">Save snapshot</button>
+        </div>
       </div>`;
   }
 
@@ -354,6 +419,136 @@
     load();
   }
 
+  function getSavedSnapshots() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem(SNAPSHOT_STORAGE_KEY) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return parsed;
+    } catch {
+      return [];
+    }
+  }
+
+  function setSavedSnapshots(items) {
+    localStorage.setItem(SNAPSHOT_STORAGE_KEY, JSON.stringify(items));
+  }
+
+  function pruneSnapshots() {
+    const now = Date.now();
+    const active = getSavedSnapshots()
+      .filter(item => item.expiresAt > now)
+      .sort((a, b) => b.savedAt - a.savedAt);
+    setSavedSnapshots(active);
+    return active;
+  }
+
+  function renderSnapshots() {
+    const list = document.getElementById('snapshot-list');
+    const items = pruneSnapshots();
+    if (!items.length) {
+      list.className = 'snapshot-empty';
+      list.textContent = 'No saved snapshots yet.';
+      return;
+    }
+
+    list.className = 'snapshot-list';
+    list.innerHTML = items.map(item => `
+      <div class="snapshot-item">
+        <img class="snapshot-thumb" src="${item.image}" alt="${item.title}">
+        <div class="snapshot-meta">
+          <div class="snapshot-name">${item.title}</div>
+          <div class="snapshot-text">Saved ${item.savedAtLabel}</div>
+          <div class="snapshot-text">Expires ${item.expiresAtLabel}</div>
+          <div class="snapshot-actions">
+            <a class="snapshot-link" href="${item.image}" download="${item.filename}">Download</a>
+            <a class="snapshot-link" href="#" onclick="openSnapshot('${item.id}'); return false;">Open</a>
+            <button class="card-btn" onclick="deleteSnapshot('${item.id}')">Remove</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  async function openSnapshot(id) {
+    const item = pruneSnapshots().find(snapshot => snapshot.id === id);
+    if (!item) return;
+
+    try {
+      const response = await fetch(item.image);
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const win = window.open(blobUrl, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        URL.revokeObjectURL(blobUrl);
+        return;
+      }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 60 * 1000);
+    } catch (error) {
+      alert('Could not open this snapshot.');
+    }
+  }
+
+  function deleteSnapshot(id) {
+    const items = getSavedSnapshots().filter(item => item.id !== id);
+    setSavedSnapshots(items);
+    renderSnapshots();
+  }
+
+  async function saveSnapshot(index) {
+    const card = document.getElementById(`plan-card-${index}`);
+    const button = document.getElementById(`save-btn-${index}`);
+    if (!card || !currentConnections[index]) return;
+    if (!window.html2canvas) {
+      alert('Snapshot capture is unavailable right now.');
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = 'Saving...';
+
+    try {
+      const canvas = await window.html2canvas(card, {
+        backgroundColor: '#ffffff',
+        scale: Math.min(window.devicePixelRatio || 1, 2),
+      });
+      const image = canvas.toDataURL('image/jpeg', 0.88);
+      const now = Date.now();
+      const savedAt = new Date(now);
+      const expiresAt = now + SNAPSHOT_TTL_MS;
+      const connection = currentConnections[index];
+      const title = `${connection.leave_odegaard} · ${mode === 1 ? 'Walk' : 'Bus'} mode`;
+      const filename = `commute-plan-${savedAt.toISOString().replace(/[:.]/g, '-')}.jpg`;
+
+      const item = {
+        id: `${now}-${index}`,
+        title,
+        image,
+        filename,
+        savedAt,
+        savedAtLabel: savedAt.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+        expiresAt,
+        expiresAtLabel: new Date(expiresAt).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }),
+        reportTime: currentReportTimeLabel,
+      };
+
+      const items = pruneSnapshots();
+      items.unshift(item);
+      setSavedSnapshots(items.slice(0, MAX_SNAPSHOTS));
+      renderSnapshots();
+      button.textContent = 'Saved';
+      setTimeout(() => {
+        button.disabled = false;
+        button.textContent = 'Save snapshot';
+      }, 1200);
+      return;
+    } catch (error) {
+      alert('Could not save that snapshot. Try again.');
+    }
+
+    button.disabled = false;
+    button.textContent = 'Save snapshot';
+  }
+
   async function load() {
     const out = document.getElementById('out');
     const refreshBtn = document.getElementById('refresh-btn');
@@ -383,13 +578,15 @@
         return;
       }
       document.getElementById('desc').textContent = d.mode_description;
+      currentReportTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       reportTime.textContent =
-        `Report time: ${new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} — refresh for latest departures`;
+        `Report time: ${currentReportTimeLabel} — refresh for latest departures`;
+      currentConnections = d.connections || [];
       let html = '';
       if (d.out_of_window_note) {
         html += `<div class="warn" style="margin-bottom:10px">⚠️ ${d.out_of_window_note}</div>`;
       }
-      html += d.connections.map((c, i) => renderCard(c, i === 0)).join('');
+      html += d.connections.map((c, i) => renderCard(c, i === 0, i)).join('');
       out.innerHTML = html;
       hasLoadedConnections = true;
     } catch(e) {
@@ -405,6 +602,7 @@
   }
 
   loadLine2Preference();
+  renderSnapshots();
   initModes().then(load);
 
   // ── TIMINGS PAGE ──────────────────────────────────────────────────────────────

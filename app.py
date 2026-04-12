@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 import httpx
 import os
 from datetime import datetime, timedelta
@@ -119,6 +120,7 @@ MODES = {
 }
 
 app = FastAPI(title="UW Commute Planner")
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
@@ -128,6 +130,23 @@ async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
     return resp.json().get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
+
+
+async def trip_serves_stop(trip_id: str, service_date: int, stop_id: str) -> bool:
+    url = f"{OBA_BASE}/trip-details/{trip_id}.json"
+    params = {"key": API_KEY, "serviceDate": service_date}
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get(url, params=params)
+        resp.raise_for_status()
+
+    stop_times = (
+        resp.json()
+        .get("data", {})
+        .get("entry", {})
+        .get("schedule", {})
+        .get("stopTimes", [])
+    )
+    return any(stop_time.get("stopId") == stop_id for stop_time in stop_times)
 
 
 def by_route(arrivals: list, route_id: str) -> list:
@@ -161,6 +180,13 @@ async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) 
         # Must have enough time to walk to the stop (includes buffer)
         if d < now + timedelta(minutes=cfg["walk_to_stop"]):
             continue
+        if cfg.get("dropoff_stop"):
+            trip_id = a.get("tripId")
+            service_date = a.get("serviceDate")
+            if not trip_id or service_date is None:
+                continue
+            if not await trip_serves_stop(trip_id, service_date, cfg["dropoff_stop"]):
+                continue
         pick = a  # keep updating — want the latest valid one
 
     if not pick:
