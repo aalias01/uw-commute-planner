@@ -173,4 +173,4 @@ commute-planner/
 
 Built by **Alvin Alias** as a personal full-stack project around a real daily commute.
 
-[LinkedIn](https://www.linkedin.com/in/alvin-alias/) · [learnalvin@gmail.com](mailto:learnalvin@gmail.com)
+[LinkedIn](https://www.linkedin.com/in/alvin-alias/)
