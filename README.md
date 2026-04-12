@@ -8,9 +8,9 @@ A real-time commute planner built around one question: when should I leave, and 
 
 ## Why This Exists
 
-General transit apps show routes well, but they don't always answer a narrow, repeated decision well:
+General transit apps are great at showing routes, but rarely answer a narrow, repeated decision well:
 
-> Should I leave now, wait a few minutes, walk straight to the station, or catch a feeder bus first?
+> Should I leave now or wait — and which option minimizes my time standing around at a transfer?
 
 This app is built around one real commute from UW. Instead of searching broadly, it works backwards from the destination and finds the best live option for the current moment.
 
@@ -42,7 +42,7 @@ For each candidate trip, the planner works backwards from the destination:
 3. For **Bus mode**, checks Bus 44, 372, and 45 for a feeder that still makes the platform in time.
 4. For **U-District Station start**, skips steps 2–3 and goes straight to train selection.
 5. Scores results by least wait at the final station, then least extra transfer wait, then earliest departure when tied.
-6. Returns the best option and one backup.
+6. Returns up to three cards: Best option, Backup option, and Earliest departure.
 
 The result is not just a route — it's a recommendation for **what to do right now**.
 
@@ -63,14 +63,14 @@ The app has two views:
 - Destination selector: Bus 333, Bus 348, or Train only
 - Departure filter: `Within N min` (with fallback) or `After N min` (strict, no fallback)
 - Walk and Bus commute modes (Odegaard start only)
-- Leave window: 15 min, 30 min, or a saved custom minute value
+- Leave window: 15 / 30 min presets or a custom value (1–240 min)
 - Include Line 2 toggle
 - Transfer buffer with reliability labels: Tight / Okay / Comfortable
-- Best option + backup option cards with live vs scheduled badge
-- Step-by-step visual timeline on each card
+- Up to three result cards: Best option, Backup option, and Earliest departure
+- Step-by-step visual timeline on each card with live vs scheduled badge
 - Saved defaults persisted to localStorage
 - Manual refresh with visible report time
-- Local browser snapshots with 24-hour expiry
+- Local browser snapshots with 24-hour expiry (up to 6 saved)
 - Timings page with destination-specific display toggle
 - Direction filtering for all feeder buses and Bus 45 dropoff validation
 
