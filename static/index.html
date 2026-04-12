@@ -66,6 +66,45 @@
     .countdown { font-size: 13px; font-weight: 500; margin-bottom: 12px; color: #1a6b4a; }
     .countdown.now { color: #c0392b; }
     .card-report-time { font-size: 11px; color: #888; margin-bottom: 12px; }
+    .card-kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #7f8c8d;
+    }
+    .reliability-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .reliability-pill.tight {
+      background: #fff0f0;
+      color: #a32d2d;
+      border: 1px solid #f1b3b3;
+    }
+    .reliability-pill.okay {
+      background: #fff8e1;
+      color: #7a5f00;
+      border: 1px solid #f0d17a;
+    }
+    .reliability-pill.comfortable {
+      background: #edf8f0;
+      color: #1a6b4a;
+      border: 1px solid #b7dec7;
+    }
     .cushion-note {
       font-size: 12px;
       border-radius: 8px;
@@ -168,6 +207,28 @@
     .switch input:checked + .slider { background: #1a6b4a; }
     .switch input:checked + .slider::before { transform: translateX(20px); }
     .toggle-status { font-size: 12px; color: #666; }
+    .default-panel {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #f0f0f0;
+      flex-wrap: wrap;
+    }
+    .default-status {
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+      flex: 1;
+      min-width: 220px;
+    }
+    .default-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .snapshot-panel {
       background: white;
       border: 1px solid #e0e0e0;
@@ -249,7 +310,7 @@
   <div class="page visible" id="page-planner">
     <div class="tabs" id="tabs"></div>
     <div class="idle-row" id="stay-row">
-      <span class="idle-label">Stay at library:</span>
+      <span class="idle-label">Leave within:</span>
       <button class="idle-chip active" onclick="setStay(15, this)">15 min</button>
       <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
       <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
@@ -272,13 +333,20 @@
         </label>
       </div>
       <div class="toggle-status" id="line2-status">Line 2 trips will be considered in planner results.</div>
+      <div class="default-panel">
+        <div class="default-status" id="default-setup-status">No saved default setup yet.</div>
+        <div class="default-actions">
+          <button class="card-btn" onclick="saveCurrentAsDefault()">Save current as default</button>
+          <button class="card-btn" onclick="clearSavedDefault()">Clear default</button>
+        </div>
+      </div>
     </div>
     <div class="toolbar">
       <span class="desc" id="desc"></span>
       <button class="refresh" id="refresh-btn" onclick="load()">↻ Refresh</button>
     </div>
     <div class="report-time" id="report-time">Report time: —</div>
-    <div id="out"><div class="loading">Fetching live data…</div></div>
+    <div id="out"><div class="loading">Press Refresh to load latest departures.</div></div>
     <div class="snapshot-panel">
       <div class="snapshot-title">Saved Snapshots</div>
       <div class="snapshot-help">Save a screenshot of a plan card for quick reference. Snapshots stay on this device for 24 hours and then expire automatically.</div>
@@ -342,8 +410,7 @@
   let mode = 2;
   let includeLine2 = true;
   let finalBus = '333';
-  const LINE2_STORAGE_KEY = 'uw-commute-planner-include-line2';
-  const FINAL_BUS_STORAGE_KEY = 'uw-commute-planner-final-bus';
+  const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
   const MAX_SNAPSHOTS = 3;
@@ -363,6 +430,7 @@
   async function initModes() {
     const d = await fetch('/api/modes').then(r => r.json());
     const el = document.getElementById('tabs');
+    el.innerHTML = '';
     d.modes.forEach(m => {
       const b = document.createElement('button');
       b.className = 'tab' + (m.id === mode ? ' active' : '');
@@ -372,7 +440,7 @@
         el.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
         b.classList.add('active');
         updatePlannerDescription();
-        load();
+        markPlannerDirty();
       };
       el.appendChild(b);
     });
@@ -396,12 +464,89 @@
     document.getElementById('desc').textContent = MODE_DESCRIPTIONS[mode]?.[finalBus] || '';
   }
 
+  function formatDefaultSetupSummary(setup) {
+    const modeLabel = setup.mode === 1 ? 'Walk mode' : 'Bus mode';
+    const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
+    return `${modeLabel} · Leave within ${setup.stayWindow} min · Bus ${setup.finalBus} · ${line2Label}`;
+  }
+
+  function readSavedDefaultSetup() {
+    try {
+      const raw = localStorage.getItem(DEFAULT_SETUP_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      if (![1, 2].includes(parsed.mode)) return null;
+      if (![15, 30, 45, 60].includes(parsed.stayWindow)) return null;
+      if (!['333', '348'].includes(parsed.finalBus)) return null;
+      if (typeof parsed.includeLine2 !== 'boolean') return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function renderSavedDefaultStatus() {
+    const saved = readSavedDefaultSetup();
+    document.getElementById('default-setup-status').textContent = saved
+      ? `Saved default: ${formatDefaultSetupSummary(saved)}`
+      : 'No saved default setup yet.';
+  }
+
+  function updateStayButtons() {
+    document.querySelectorAll('#stay-row .idle-chip').forEach(b => {
+      b.classList.toggle('active', Number.parseInt(b.textContent, 10) === stayWindow);
+    });
+  }
+
+  function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
+    currentConnections = [];
+    currentReportTimeLabel = '—';
+    document.getElementById('report-time').textContent = 'Report time: —';
+    document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
+  }
+
+  function saveCurrentAsDefault() {
+    const setup = { mode, stayWindow, finalBus, includeLine2 };
+    localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
+    renderSavedDefaultStatus();
+  }
+
+  function clearSavedDefault() {
+    localStorage.removeItem(DEFAULT_SETUP_STORAGE_KEY);
+    renderSavedDefaultStatus();
+  }
+
+  function applySavedDefaultSetup() {
+    const saved = readSavedDefaultSetup();
+    if (!saved) return;
+    mode = saved.mode;
+    stayWindow = saved.stayWindow;
+    finalBus = saved.finalBus;
+    includeLine2 = saved.includeLine2;
+  }
+
+  function getReliabilityMeta(connection) {
+    const cushion = connection.transfer_cushion_mins;
+    if (cushion === null || cushion === undefined) {
+      return null;
+    }
+    if (cushion <= 0) {
+      return { cls: 'tight', label: 'Tight' };
+    }
+    if (cushion <= 2) {
+      return { cls: 'okay', label: 'Okay' };
+    }
+    return { cls: 'comfortable', label: 'Comfortable' };
+  }
+
   function renderCard(c, first, index) {
     const urgent = c.minutes_until <= 5;
     const countText = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
     const badge = c.is_realtime
       ? '<span class="badge badge-live">Live</span>'
       : '<span class="badge badge-sched">Scheduled</span>';
+    const reliability = getReliabilityMeta(c);
     const cushion = c.transfer_cushion_mins ?? null;
     const cushionClass = cushion === null ? '' : (cushion <= 0 ? ' warning' : cushion <= 2 ? ' caution' : '');
     const cushionText = cushion === null
@@ -409,6 +554,7 @@
       : cushion <= 0
         ? `No extra cushion at ${c.transfer_station_label} — transfer is tight`
         : `${cushion} min cushion at ${c.transfer_station_label} after the ${c.transfer_walk_mins} min station walk`;
+    const cardLabel = first ? 'Best option' : 'Backup option';
     let rows = '';
     c.steps.forEach(s => {
       const icon = `<div class="step-icon ${ICON_CLASS[s.icon]}">${ICONS[s.icon]}</div>`;
@@ -422,7 +568,10 @@
     });
     return `
       <div class="card${first ? ' top' : ''}" id="plan-card-${index}">
-        ${first ? '' : '<div class="alt-lbl">Alternative</div>'}
+        <div class="card-kicker">
+          <div class="card-label">${cardLabel}</div>
+          ${reliability ? `<span class="reliability-pill ${reliability.cls}">${reliability.label}</span>` : ''}
+        </div>
         <div class="leave-lbl">Leave Odegaard</div>
         <div class="leave-time">${c.leave_odegaard}${badge}</div>
         <div class="countdown${urgent ? ' now' : ''}">${countText} · <span style="font-weight:400;color:#888">${c.total_mins} min to ${FINAL_BUS_LABELS[finalBus]}</span></div>
@@ -450,19 +599,14 @@
   }
 
   function loadLine2Preference() {
-    const saved = localStorage.getItem(LINE2_STORAGE_KEY);
-    if (saved !== null) {
-      includeLine2 = saved === 'true';
-    }
     document.getElementById('line2-toggle').checked = includeLine2;
     updateLine2Status();
   }
 
   function setLine2Preference(enabled) {
     includeLine2 = enabled;
-    localStorage.setItem(LINE2_STORAGE_KEY, String(enabled));
     updateLine2Status();
-    load();
+    markPlannerDirty();
   }
 
   function updateFinalBusButtons() {
@@ -471,29 +615,24 @@
   }
 
   function loadFinalBusPreference() {
-    const saved = localStorage.getItem(FINAL_BUS_STORAGE_KEY);
-    if (saved === '333' || saved === '348') {
-      finalBus = saved;
-    }
     updateFinalBusButtons();
     updatePlannerDescription();
   }
 
   function setFinalBus(value, btn) {
     finalBus = value;
-    localStorage.setItem(FINAL_BUS_STORAGE_KEY, value);
     document.querySelectorAll('#page-planner .choice-row .idle-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
     updatePlannerDescription();
     initTimings();
-    load();
+    markPlannerDirty();
   }
 
   function setStay(val, btn) {
     stayWindow = val;
     document.querySelectorAll('#stay-row .idle-chip').forEach(b => b.classList.remove('active'));
     if (btn) btn.classList.add('active');
-    load();
+    markPlannerDirty();
   }
 
   function getSavedSnapshots() {
@@ -645,9 +784,9 @@
       const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}&final_bus=${finalBus}`).then(r => r.json());
       if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
-        out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying in 10 seconds…</div>';
+        out.innerHTML = '<div class="warn">⏱ Rate limited. Try Refresh again in a few seconds.</div>';
         reportTime.textContent = 'Report time: delayed by rate limit';
-        setTimeout(load, 10000); return;
+        return;
       }
       if (d.error) {
         out.innerHTML = `<div class="error">${d.error}</div>`;
@@ -659,12 +798,12 @@
       currentReportTimeLabel = new Date().toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
       reportTime.textContent =
         `Report time: ${currentReportTimeLabel} — refresh for latest departures`;
-      currentConnections = d.connections || [];
+      currentConnections = (d.connections || []).slice(0, 2);
       let html = '';
       if (d.out_of_window_note) {
         html += `<div class="warn" style="margin-bottom:10px">⚠️ ${d.out_of_window_note}</div>`;
       }
-      html += d.connections.map((c, i) => renderCard(c, i === 0, i)).join('');
+      html += currentConnections.map((c, i) => renderCard(c, i === 0, i)).join('');
       out.innerHTML = html;
       hasLoadedConnections = true;
     } catch(e) {
@@ -680,10 +819,16 @@
     }
   }
 
+  applySavedDefaultSetup();
   loadLine2Preference();
   loadFinalBusPreference();
+  updateStayButtons();
+  renderSavedDefaultStatus();
   renderSnapshots();
-  initModes().then(load);
+  initModes().then(() => {
+    updatePlannerDescription();
+    markPlannerDirty('Press Refresh to load latest departures.');
+  });
 
   // ── TIMINGS PAGE ──────────────────────────────────────────────────────────────
 
