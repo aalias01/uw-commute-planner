@@ -32,10 +32,9 @@ ROUTES = {
     "bus_372": "1_100214",
 }
 
-# ── Line 2 toggle ──────────────────────────────────────────────────────────────
-# Set to True when Line 2 Northgate construction ends and service resumes at
-# U-District Station. Everything else updates automatically.
-ENABLE_2_LINE = False
+# ── Line 2 support ─────────────────────────────────────────────────────────────
+# Line 2 can be included per request from the UI. Keep the route configured here
+# so the backend can merge 1 Line and 2 Line arrivals when requested.
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ─── TIMING SETTINGS ─────────────────────────────────────────────────────────
@@ -182,7 +181,12 @@ async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime) 
     }
 
 
-async def find_connections(mode: int, now: Optional[datetime] = None, stay_window: int = 30) -> dict:
+async def find_connections(
+    mode: int,
+    now: Optional[datetime] = None,
+    stay_window: int = 30,
+    include_line2: bool = True,
+) -> dict:
     """
     stay_window: how many minutes from now you are willing to stay at Odegaard.
     Returns connections whose leave_odegaard falls within that window,
@@ -195,6 +199,9 @@ async def find_connections(mode: int, now: Optional[datetime] = None, stay_windo
     cfg = MODES.get(mode)
     if not cfg:
         return {"error": f"Unknown mode {mode}"}
+
+    line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
+    mode_description = cfg["description"].replace("1 Line", line_label)
 
     # Latest acceptable departure from Odegaard based on stay window
     window_deadline = now + timedelta(minutes=stay_window)
@@ -209,7 +216,7 @@ async def find_connections(mode: int, now: Optional[datetime] = None, stay_windo
         buses_333    = by_route(await get_arrivals(STOPS["shoreline_south_bay1"], 120), ROUTES["bus_333"])
         raw_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
         trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
-        trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if ENABLE_2_LINE else []
+        trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
         all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
 
         if not buses_333:
@@ -355,16 +362,17 @@ async def find_connections(mode: int, now: Optional[datetime] = None, stay_windo
         return {"error": "No viable connections found. Try refreshing."}
 
     return {
-        "mode_description":   cfg["description"],
+        "mode_description":   mode_description,
         "connections":        final,
         "out_of_window_note": out_of_window_note,
         "stay_window":        stay_window,
+        "include_line2":      include_line2,
     }
 
 
 @app.get("/api/connections")
-async def get_connections(mode: int = 1, stay: int = 30):
-    return await find_connections(mode, stay_window=stay)
+async def get_connections(mode: int = 1, stay: int = 30, include_line2: bool = True):
+    return await find_connections(mode, stay_window=stay, include_line2=include_line2)
 
 @app.get("/api/modes")
 async def get_modes():

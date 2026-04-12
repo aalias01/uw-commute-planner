@@ -84,6 +84,56 @@
     .idle-custom { width: 52px; font-size: 12px; padding: 4px 8px; border-radius: 8px; border: 1.5px solid #ccc; text-align: center; }
     .idle-custom:focus { outline: none; border-color: #1a6b4a; }
     .idle-unit { font-size: 12px; color: #666; }
+    .toggle-panel {
+      background: white;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .toggle-copy { flex: 1; min-width: 0; }
+    .toggle-title { font-size: 13px; font-weight: 600; color: #222; margin-bottom: 2px; }
+    .toggle-help { font-size: 12px; color: #666; line-height: 1.5; }
+    .toggle-help a { color: #1a6b4a; font-weight: 600; text-decoration: none; }
+    .toggle-help a:hover { text-decoration: underline; }
+    .switch {
+      position: relative;
+      display: inline-flex;
+      width: 48px;
+      height: 28px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute;
+      inset: 0;
+      cursor: pointer;
+      background: #d9d9d9;
+      border-radius: 999px;
+      transition: background 0.2s ease;
+    }
+    .slider::before {
+      content: "";
+      position: absolute;
+      width: 22px;
+      height: 22px;
+      left: 3px;
+      top: 3px;
+      border-radius: 50%;
+      background: white;
+      transition: transform 0.2s ease;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+    }
+    .switch input:checked + .slider { background: #1a6b4a; }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+    .toggle-status { font-size: 12px; color: #666; }
 
     /* ── TIMINGS PAGE ── */
     .t-section { margin-bottom: 20px; }
@@ -133,6 +183,19 @@
       <button class="idle-chip" onclick="setStay(30, this)">30 min</button>
       <button class="idle-chip" onclick="setStay(45, this)">45 min</button>
       <button class="idle-chip" onclick="setStay(60, this)">60 min</button>
+    </div>
+    <div class="toggle-panel">
+      <div class="toggle-row">
+        <div class="toggle-copy">
+          <div class="toggle-title">Include Line 2</div>
+          <div class="toggle-help">Turn this off if Line 2 is not reaching your intended station because of construction or service changes. <a href="https://www.soundtransit.org/ride-with-us/service-alerts" target="_blank" rel="noopener noreferrer">Check Sound Transit alerts</a>.</div>
+        </div>
+        <label class="switch" aria-label="Include Line 2">
+          <input type="checkbox" id="line2-toggle" checked onchange="setLine2Preference(this.checked)">
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="toggle-status" id="line2-status">Line 2 trips will be considered in planner results.</div>
     </div>
     <div class="toolbar">
       <span class="desc" id="desc"></span>
@@ -194,6 +257,8 @@
 
 <script>
   let mode = 2;
+  let includeLine2 = true;
+  const LINE2_STORAGE_KEY = 'uw-commute-planner-include-line2';
 
   // nav
   function showPage(id, btn) {
@@ -260,6 +325,28 @@
   let hasLoadedConnections = false;
   let activeLoadId = 0;
 
+  function updateLine2Status() {
+    document.getElementById('line2-status').textContent = includeLine2
+      ? 'Line 2 trips will be considered in planner results.'
+      : 'Only 1 Line trips will be considered in planner results.';
+  }
+
+  function loadLine2Preference() {
+    const saved = localStorage.getItem(LINE2_STORAGE_KEY);
+    if (saved !== null) {
+      includeLine2 = saved === 'true';
+    }
+    document.getElementById('line2-toggle').checked = includeLine2;
+    updateLine2Status();
+  }
+
+  function setLine2Preference(enabled) {
+    includeLine2 = enabled;
+    localStorage.setItem(LINE2_STORAGE_KEY, String(enabled));
+    updateLine2Status();
+    load();
+  }
+
   function setStay(val, btn) {
     stayWindow = val;
     document.querySelectorAll('.idle-chip').forEach(b => b.classList.remove('active'));
@@ -283,7 +370,7 @@
     }
 
     try {
-      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}`).then(r => r.json());
+      const d = await fetch(`/api/connections?mode=${mode}&stay=${stayWindow}&include_line2=${includeLine2}`).then(r => r.json());
       if (loadId !== activeLoadId) return;
       if (d.error === 'rate_limit') {
         out.innerHTML = '<div class="warn">⏱ Rate limited. Retrying in 10 seconds…</div>';
@@ -317,6 +404,7 @@
     }
   }
 
+  loadLine2Preference();
   initModes().then(load);
 
   // ── TIMINGS PAGE ──────────────────────────────────────────────────────────────
