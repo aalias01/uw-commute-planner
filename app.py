@@ -919,7 +919,7 @@ async def get_timetable():
             },
             "class": {
                 "label": "Class",
-                "help": "Upcoming class-bound buses from W Stevens Way NE & George Washington Ln.",
+                "help": "Upcoming class-bound buses. About 10 min to class after boarding, including bus ride and walk.",
                 "routes": ["Bus 44", "Bus 67", "Bus 372"],
                 "rows": class_rows[:24],
                 "empty_message": "No upcoming class-bound departures found right now.",
