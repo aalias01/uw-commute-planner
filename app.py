@@ -238,6 +238,8 @@ def headsign_matches(expected: Optional[str], actual: str) -> bool:
     expected_l = expected.lower()
     if any(token in expected_l for token in ("university district", "u-district station", "udistrict station")):
         return "university" in actual_l or "u-district" in actual_l or "udistrict" in actual_l
+    if expected_l == "richmond beach north city":
+        return "richmond beach north city" in actual_l or "hillwood park north city" in actual_l
     return expected_l in actual_l
 
 
