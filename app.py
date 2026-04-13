@@ -824,7 +824,7 @@ async def get_timetable():
             "Bus 333",
             "Shoreline South/148th Bay 2",
             now,
-            "Mountlake Terrace Station",
+            arrival.get("tripHeadsign", "").strip(),
         ))
         final_rows[-1]["warning"] = headsign_warning("Bus 333", "Mountlake Terrace Station", arrival.get("tripHeadsign", ""))
     for arrival in by_route_label(shoreline_north_arrivals, ROUTES["bus_348"], "348"):
@@ -833,7 +833,7 @@ async def get_timetable():
             "Bus 348",
             "Shoreline North/185th Bay 3",
             now,
-            "Richmond Beach North City",
+            arrival.get("tripHeadsign", "").strip(),
         ))
         final_rows[-1]["warning"] = headsign_warning("Bus 348", "Richmond Beach North City", arrival.get("tripHeadsign", ""))
     final_rows.sort(key=lambda row: row["depart_ts"])
