@@ -202,6 +202,13 @@ def by_route_label(arrivals: list, route_id: str, short_name: str) -> list:
     ]
 
 
+def by_short_name(arrivals: list, short_name: str) -> list:
+    return [
+        a for a in arrivals
+        if str(a.get("routeShortName", "")).strip() == short_name
+    ]
+
+
 def depart_time(a: dict) -> datetime:
     predicted = a.get("predictedDepartureTime", 0)
     scheduled = a.get("scheduledDepartureTime", 0)
@@ -828,6 +835,8 @@ async def get_timetable():
         ))
         final_rows[-1]["warning"] = headsign_warning("Bus 333", "Mountlake Terrace Station", arrival.get("tripHeadsign", ""))
     for arrival in by_route_label(shoreline_north_arrivals, ROUTES["bus_348"], "348"):
+        if not headsign_matches("Richmond Beach North City", arrival.get("tripHeadsign", "")):
+            continue
         final_rows.append(format_departure_entry(
             arrival,
             "Bus 348",
@@ -835,7 +844,6 @@ async def get_timetable():
             now,
             arrival.get("tripHeadsign", "").strip(),
         ))
-        final_rows[-1]["warning"] = headsign_warning("Bus 348", "Richmond Beach North City", arrival.get("tripHeadsign", ""))
     final_rows.sort(key=lambda row: row["depart_ts"])
     final_rows = dedupe_departure_rows(final_rows)
 
@@ -865,9 +873,57 @@ async def get_timetable():
     feeder_rows.sort(key=lambda row: row["depart_ts"])
     feeder_rows = dedupe_departure_rows(feeder_rows)
 
+    class_rows = []
+    for arrival in by_short_name(feeder_stop_arrivals, "44"):
+        if not headsign_matches("Ballard Wallingford", arrival.get("tripHeadsign", "")):
+            continue
+        class_rows.append(format_departure_entry(
+            arrival,
+            "Bus 44",
+            BUS_OPTIONS["bus_44"]["stop_name"],
+            now,
+            arrival.get("tripHeadsign", "").strip(),
+        ))
+    for arrival in by_short_name(bus_45_arrivals, "67"):
+        if not headsign_matches("Northgate Station Roosevelt Station", arrival.get("tripHeadsign", "")):
+            continue
+        class_rows.append(format_departure_entry(
+            arrival,
+            "Bus 67",
+            BUS_OPTIONS["bus_45"]["stop_name"],
+            now,
+            arrival.get("tripHeadsign", "").strip(),
+        ))
+    for arrival in by_short_name(feeder_stop_arrivals, "372"):
+        if not headsign_matches("U-District Station", arrival.get("tripHeadsign", "")):
+            continue
+        class_rows.append(format_departure_entry(
+            arrival,
+            "Bus 372",
+            BUS_OPTIONS["bus_372"]["stop_name"],
+            now,
+            arrival.get("tripHeadsign", "").strip(),
+        ))
+    class_rows.sort(key=lambda row: row["depart_ts"])
+    class_rows = dedupe_departure_rows(class_rows)
+
     return {
         "generated_at": now.strftime("%I:%M %p"),
         "tabs": {
+            "feeder_buses": {
+                "label": "Feeder Buses",
+                "help": "Upcoming feeder buses from your Odegaard-area boarding stops.",
+                "routes": ["Bus 44", "Bus 45", "Bus 372"],
+                "rows": feeder_rows[:30],
+                "empty_message": "No upcoming feeder bus departures found right now.",
+            },
+            "class": {
+                "label": "Class",
+                "help": "Upcoming class-bound buses from W Stevens Way NE & George Washington Ln.",
+                "routes": ["Bus 44", "Bus 67", "Bus 372"],
+                "rows": class_rows[:24],
+                "empty_message": "No upcoming class-bound departures found right now.",
+            },
             "link": {
                 "label": "Link",
                 "help": "Upcoming northbound train departures from U-District Station.",
@@ -881,13 +937,6 @@ async def get_timetable():
                 "routes": ["Bus 333", "Bus 348"],
                 "rows": final_rows[:24],
                 "empty_message": "No upcoming 333 or 348 departures found right now.",
-            },
-            "feeder_buses": {
-                "label": "Feeder Buses",
-                "help": "Upcoming feeder buses from your Odegaard-area boarding stops.",
-                "routes": ["Bus 44", "Bus 45", "Bus 372"],
-                "rows": feeder_rows[:30],
-                "empty_message": "No upcoming feeder bus departures found right now.",
             },
         },
     }

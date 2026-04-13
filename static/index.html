@@ -1002,9 +1002,10 @@
     <div class="timings-controls">
       <div class="ctrl-label">Browse departures</div>
       <div class="chip-row">
-        <button class="idle-chip active" id="timetable-tab-link" onclick="setTimetableTab('link', this)">Link</button>
-        <button class="idle-chip" id="timetable-tab-final-buses" onclick="setTimetableTab('final_buses', this)">Final Buses</button>
         <button class="idle-chip" id="timetable-tab-feeder-buses" onclick="setTimetableTab('feeder_buses', this)">Feeder Buses</button>
+        <button class="idle-chip" id="timetable-tab-link" onclick="setTimetableTab('link', this)">Link</button>
+        <button class="idle-chip active" id="timetable-tab-final-buses" onclick="setTimetableTab('final_buses', this)">Final Buses</button>
+        <button class="idle-chip" id="timetable-tab-class" onclick="setTimetableTab('class', this)">To Class</button>
       </div>
       <div class="board-help">Quick departure board for the stops and routes you care about, sorted by soonest departure.</div>
     </div>
@@ -1012,12 +1013,12 @@
     <div class="board-panel">
       <div class="board-meta">
         <div>
-          <div class="board-title" id="timetable-title">Link departures</div>
+          <div class="board-title" id="timetable-title">Final Buses departures</div>
           <div class="board-time" id="timetable-report-time">Board time: —</div>
         </div>
         <button class="refresh" id="timetable-refresh-btn" onclick="loadTimetable()">↻ Refresh board</button>
       </div>
-      <div class="board-help" id="timetable-help">Upcoming northbound train departures from U-District Station.</div>
+      <div class="board-help" id="timetable-help">Upcoming departures from the final transfer stops you care about.</div>
       <div id="timetable-out"><div class="loading">Open the Timetable tab or press Refresh board to load departures.</div></div>
     </div>
   </div>
@@ -1029,10 +1030,11 @@
   let includeLine2 = true;
   let destination = '333';
   let timingsDestination = '333';
-  let timetableTab = 'link';
+  let timetableTab = 'final_buses';
   let timetableLoaded = false;
   let timetableData = null;
   const timetableFilters = {
+    class: new Set(),
     link: new Set(),
     final_buses: new Set(),
     feeder_buses: new Set(),
@@ -1135,9 +1137,10 @@
     initTimings();
   }
   function updateTimetableTabButtons() {
+    document.getElementById('timetable-tab-feeder-buses').classList.toggle('active', timetableTab === 'feeder_buses');
+    document.getElementById('timetable-tab-class').classList.toggle('active', timetableTab === 'class');
     document.getElementById('timetable-tab-link').classList.toggle('active', timetableTab === 'link');
     document.getElementById('timetable-tab-final-buses').classList.toggle('active', timetableTab === 'final_buses');
-    document.getElementById('timetable-tab-feeder-buses').classList.toggle('active', timetableTab === 'feeder_buses');
   }
   function setTimetableTab(value, btn) {
     timetableTab = value;
@@ -1149,7 +1152,7 @@
     renderTimetable();
   }
   function ensureTimetableFilters(tabKey, rows) {
-    if (!['link', 'final_buses', 'feeder_buses'].includes(tabKey)) return;
+    if (!['class', 'link', 'final_buses', 'feeder_buses'].includes(tabKey)) return;
     const routes = timetableData?.tabs?.[tabKey]?.routes || [...new Set((rows || []).map(row => row.route))];
     if (!timetableFilters[tabKey].size) {
       routes.forEach(route => timetableFilters[tabKey].add(route));
@@ -1594,10 +1597,10 @@
     help.textContent = tab.help;
     reportTime.textContent = `Board time: ${timetableData.generated_at} — refresh for latest`;
     ensureTimetableFilters(timetableTab, tab.rows);
-    const visibleRows = ['link', 'final_buses', 'feeder_buses'].includes(timetableTab)
+    const visibleRows = ['class', 'link', 'final_buses', 'feeder_buses'].includes(timetableTab)
       ? tab.rows.filter(row => timetableFilters[timetableTab].has(row.route))
       : tab.rows;
-    const filterHtml = ['link', 'final_buses', 'feeder_buses'].includes(timetableTab)
+    const filterHtml = ['class', 'link', 'final_buses', 'feeder_buses'].includes(timetableTab)
       ? `<div class="board-filters">
           ${(tab.routes || [...new Set(tab.rows.map(row => row.route))]).map(route => `
             <label class="board-check">
