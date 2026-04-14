@@ -186,6 +186,54 @@
       color: var(--c-muted);
       margin-bottom: 9px;
     }
+    .label-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 9px;
+      flex-wrap: nowrap;
+    }
+    .label-row .ctrl-label {
+      margin-bottom: 0;
+    }
+    .hint-btn {
+      width: 16px;
+      height: 16px;
+      border-radius: 999px;
+      border: 1px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-muted);
+      font: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      padding: 0;
+    }
+    .hint-btn:hover {
+      border-color: #909090;
+      color: var(--c-ink);
+    }
+    .hint-text {
+      display: none;
+      margin-top: 8px;
+      padding: 9px 11px;
+      border-radius: 12px;
+      background: var(--c-panel);
+      color: var(--c-muted);
+      font-size: 12px;
+      line-height: 1.5;
+      border: 1px solid var(--c-border);
+    }
+    .hint-text.visible {
+      display: block;
+    }
+    .ctrl-col.compact .label-row {
+      min-width: 0;
+    }
     .ctrl-split {
       display: flex;
       flex-wrap: wrap;
@@ -472,6 +520,27 @@
     }
     .default-status { font-size: 12px; color: var(--c-muted); line-height: 1.5; flex: 1; min-width: 160px; }
     .default-actions { display: flex; gap: 7px; flex-wrap: wrap; }
+    .more-actions {
+      display: flex;
+      justify-content: center;
+      margin-top: 10px;
+    }
+    .more-btn {
+      padding: 9px 16px;
+      border-radius: 999px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      color: var(--c-ink2);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .more-btn:hover {
+      border-color: #909090;
+      color: var(--c-ink);
+    }
 
     /* ─── REFRESH BAR ─── */
     .refresh-bar {
@@ -967,7 +1036,10 @@
               <div class="tabs" id="tabs"></div>
             </div>
             <div class="ctrl-col compact">
-              <div class="ctrl-label">Start Buffer</div>
+              <div class="label-row">
+                <div class="ctrl-label">Start Buffer</div>
+                <button class="hint-btn" type="button" aria-label="Start buffer help" onclick="toggleHint('start-buffer-hint', this)">?</button>
+              </div>
               <div class="idle-row">
                 <div class="buffer-stepper">
                   <button class="buffer-btn" type="button" onclick="changeStartBuffer(-1)" aria-label="Decrease start buffer">−</button>
@@ -992,6 +1064,7 @@
               </div>
             </div>
           </div>
+          <div class="hint-text" id="start-buffer-hint">Use "Start Buffer" to add a few extra minutes before starting your trip. This is helpful when you want a little cushion or you're walking in from somewhere else.</div>
         </div>
       </div>
 
@@ -1009,7 +1082,10 @@
       <div class="ctrl-row">
         <div class="ctrl-icon">⏱</div>
         <div class="ctrl-body">
-          <div class="ctrl-label" id="stay-label">Leave within:</div>
+          <div class="label-row">
+            <div class="ctrl-label" id="stay-label">Leave within:</div>
+            <button class="hint-btn" type="button" aria-label="Leave window help" onclick="toggleHint('stay-window-hint', this)">?</button>
+          </div>
           <div class="idle-row" id="stay-row">
             <button class="idle-chip active" id="stay-btn-15" onclick="setStay(15, this)">15 min</button>
             <button class="idle-chip" id="stay-btn-30" onclick="setStay(30, this)">30 min</button>
@@ -1031,6 +1107,7 @@
               <span class="stay-custom-suffix">min</span>
             </label>
           </div>
+          <div class="hint-text" id="stay-window-hint">"Leave within" shows trips departing within the selected window and falls back to the nearest later option if none fit. "Leave after" only shows trips departing at or after that point.</div>
         </div>
       </div>
 
@@ -1194,6 +1271,7 @@
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
   const MAX_SNAPSHOTS = 6;
   let currentConnections = [];
+  let currentOutOfWindowNote = null;
   let currentReportTimeLabel = '—';
 
   function showPage(id, btn) {
@@ -1246,6 +1324,14 @@
     document.getElementById('window-mode-within').classList.toggle('active', windowMode === 'within');
     document.getElementById('window-mode-after').classList.toggle('active', windowMode === 'after');
     document.getElementById('stay-label').textContent = windowMode === 'within' ? 'Leave within:' : 'Leave after:';
+  }
+  function toggleHint(id, btn) {
+    const target = document.getElementById(id);
+    if (!target) return;
+    document.querySelectorAll('.hint-text.visible').forEach(el => {
+      if (el.id !== id) el.classList.remove('visible');
+    });
+    target.classList.toggle('visible');
   }
   function setWindowMode(value, btn) {
     windowMode = value;
@@ -1376,7 +1462,9 @@
   }
   function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
     currentConnections = [];
+    currentOutOfWindowNote = null;
     currentReportTimeLabel = '—';
+    showMoreRecommendations = false;
     if (plannerRetryTimer) {
       clearTimeout(plannerRetryTimer);
       plannerRetryTimer = null;
@@ -1414,7 +1502,7 @@
     return             { cls: 'comfortable', label: 'Comfortable' };
   }
 
-  function renderCard(c, first, index) {
+  function renderCard(c, first, index, sourceIndex = index) {
     const urgent      = c.minutes_until <= 5;
     const countText   = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
     const badge       = c.is_realtime
@@ -1429,7 +1517,7 @@
     const cardLabel   = c.recommendation_type === 'earliest'
       ? 'Earliest departure'
       : c.recommendation_type === 'backup'
-        ? 'Backup option'
+        ? (index === 1 ? 'Backup option' : `More option ${index}`)
         : 'Best option';
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
@@ -1464,7 +1552,7 @@
     stepsHtml += '</ul>';
 
     return `
-      <div class="card${first ? ' top' : ''}" id="plan-card-${index}">
+      <div class="card${first ? ' top' : ''}" id="plan-card-${sourceIndex}">
         <div class="card-header">
           <span class="card-label">${cardLabel}</span>
           ${reliability ? `<span class="reliability-pill ${reliability.cls}">${reliability.label}</span>` : ''}
@@ -1488,7 +1576,7 @@
         </div>
         <div class="card-footer">
           <div class="card-report-time">As of ${currentReportTimeLabel}</div>
-          <button class="card-btn" id="save-btn-${index}" onclick="saveSnapshot(${index})">Save snapshot</button>
+          <button class="card-btn" id="save-btn-${sourceIndex}" onclick="saveSnapshot(${sourceIndex})">Save snapshot</button>
         </div>
       </div>`;
   }
@@ -1497,6 +1585,39 @@
   let startBuffer = 0;
   let hasLoadedConnections = false;
   let activeLoadId = 0;
+  let showMoreRecommendations = false;
+
+  function revealMoreRecommendations() {
+    showMoreRecommendations = true;
+    renderConnections();
+  }
+
+  function renderConnections() {
+    const out = document.getElementById('out');
+    const indexed = currentConnections.map((c, sourceIndex) => ({ c, sourceIndex }));
+    const ranked = indexed.filter(item => item.c.recommendation_type !== 'earliest');
+    const earliest = indexed.find(item => item.c.recommendation_type === 'earliest');
+    const visibleRanked = showMoreRecommendations ? ranked.slice(0, 5) : ranked.slice(0, 2);
+
+    let html = '';
+    if (currentOutOfWindowNote) {
+      html += `<div class="warn" style="margin-bottom:12px">⚠️ ${currentOutOfWindowNote}</div>`;
+    }
+    html += visibleRanked.map((item, i) => renderCard(item.c, i === 0, i, item.sourceIndex)).join('');
+
+    if (!showMoreRecommendations && ranked.length > 2) {
+      const hiddenCount = Math.min(ranked.length, 5) - 2;
+      if (hiddenCount > 0) {
+        html += `<div class="more-actions"><button class="more-btn" type="button" onclick="revealMoreRecommendations()">Show ${hiddenCount} more option${hiddenCount === 1 ? '' : 's'}</button></div>`;
+      }
+    }
+
+    if (earliest) {
+      html += renderCard(earliest.c, false, visibleRanked.length, earliest.sourceIndex);
+    }
+
+    out.innerHTML = html;
+  }
 
   function updateLine2Status() {
     document.getElementById('line2-status').textContent = includeLine2
@@ -1736,6 +1857,7 @@
       if (d.error) {
         out.innerHTML = `<div class="error">${d.error}</div>`;
         reportTime.textContent = 'Report time: unavailable';
+        showMoreRecommendations = false;
         updatePlannerDescription();
         return;
       }
@@ -1747,20 +1869,17 @@
         clearTimeout(plannerRetryTimer);
         plannerRetryTimer = null;
       }
-      currentConnections = (d.connections || []).slice(0, 3);
-
-      let html = '';
-      if (d.out_of_window_note) {
-        html += `<div class="warn" style="margin-bottom:12px">⚠️ ${d.out_of_window_note}</div>`;
-      }
-      html += currentConnections.map((c, i) => renderCard(c, i === 0, i)).join('');
-      out.innerHTML = html;
+      currentConnections = d.connections || [];
+      currentOutOfWindowNote = d.out_of_window_note || null;
+      showMoreRecommendations = false;
+      renderConnections();
       hasLoadedConnections = true;
 
     } catch(e) {
       if (loadId !== activeLoadId) return;
       out.innerHTML = '<div class="error">Could not reach server. Is the app running?</div>';
       reportTime.textContent = 'Report time: unavailable';
+      showMoreRecommendations = false;
       updatePlannerDescription();
     } finally {
       if (loadId === activeLoadId) {

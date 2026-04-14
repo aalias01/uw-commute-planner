@@ -47,6 +47,7 @@ ROUTES = {
 # ── Leg 1: Odegaard → bus stop or station ─────────────────────────────────────
 # Mode 1: walk from Odegaard directly to U-District Station platform
 WALK_MODE1_TO_1LINE     = 10   # physical walk to reach the platform
+WALK_UDIST_TO_PLATFORM  = 1    # escalator / platform access time from U-District Station concourse
 
 # Mode 2: walk from Odegaard to each bus stop
 WALK_TO_44_372          = 5    # to 15th Ave NE & NE Campus Pkwy
@@ -67,6 +68,11 @@ LIGHT_RAIL_TO_SHORELINE_NORTH = 15  # U-District Station → Shoreline North/185
 # ── Leg 5: station → final bus bay ────────────────────────────────────────────
 WALK_1LINE_TO_333_BAY   = 3    # Shoreline South platform → Bus 333 bay
 WALK_1LINE_TO_348_BAY   = 3    # Shoreline North platform → Bus 348 bay
+RIDE_333_TO_HOME        = 21   # Bus 333 ride after boarding
+WALK_333_TO_HOME        = 4    # Walk from Bus 333 stop to apartment
+RIDE_348_TO_HOME        = 5    # Bus 348 ride after boarding
+WALK_348_TO_HOME        = 11   # Walk from Bus 348 stop to apartment
+DRIVE_GARAGE_TO_HOME    = 10   # Drive home after reaching the train garage
 
 # ── Target transfer buffer at final station ───────────────────────────────────
 # How many minutes you want to be at the final station before the bus departs.
@@ -124,6 +130,8 @@ MODES = {
 
 app = FastAPI(title="UW Commute Planner")
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+MAX_OPTIMIZED_RECOMMENDATIONS = 5
 
 DESTINATION_OPTIONS = {
     "333": {
@@ -440,7 +448,7 @@ async def find_connections(
                 best_score = None
                 for t in all_trains:
                     t_departs = depart_time(t)
-                    if t_departs < now + timedelta(minutes=start_buffer):
+                    if t_departs < now + timedelta(minutes=WALK_UDIST_TO_PLATFORM + start_buffer):
                         continue
                     if hard_latest_board and t_departs > hard_latest_board:
                         continue
@@ -454,15 +462,16 @@ async def find_connections(
                     continue
 
                 train_departs = depart_time(train)
+                leave_station = train_departs - timedelta(minutes=WALK_UDIST_TO_PLATFORM + start_buffer)
                 arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
-                total_mins_station = int(((last_bus_departs or arrive_shoreline) - train_departs).total_seconds() / 60)
+                total_mins_station = int(((last_bus_departs or arrive_shoreline) - leave_station).total_seconds() / 60)
                 actual_idle_station = int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_station = actual_idle_station - final_cfg["transfer_walk"]
-                in_window_station = matches_window(train_departs)
+                in_window_station = matches_window(leave_station)
                 entry = {
-                    "leave_odegaard":  fmt(train_departs),
-                    "leave_sort_ts":   train_departs.timestamp(),
-                    "minutes_until":   max(0, int((train_departs - now).total_seconds() / 60)),
+                    "leave_odegaard":  fmt(leave_station),
+                    "leave_sort_ts":   leave_station.timestamp(),
+                    "minutes_until":   max(0, int((leave_station - now).total_seconds() / 60)),
                     "total_mins":      total_mins_station,
                     "transfer_wait_mins": actual_idle_station,
                     "transfer_cushion_mins": transfer_cushion_station,
@@ -472,11 +481,14 @@ async def find_connections(
                     "is_realtime":     train.get("predicted", False),
                     "mode":            1,
                     "start":           start,
-                    "primary_action_label": "Board train",
+                    "primary_action_label": "Head to platform",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
                     "start_buffer_mins": start_buffer,
                     "warnings": [final_bus_warning] if final_bus_warning else [],
                     "steps": [
+                        {"icon": "walk", "label": "Walk to U-District Station platform",
+                         "depart": fmt(leave_station), "arrive": fmt(train_departs),
+                         "wait_after": None},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
                          "wait_after": int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60) if not final_cfg["is_train_only"] else None},
@@ -689,18 +701,18 @@ async def find_connections(
 
     results_in_window = dedupe_results(results_in_window)
     results_outside = dedupe_results(results_outside)
-    optimized = [e for _, e in results_in_window[:2]]
+    optimized = [e for _, e in results_in_window[:MAX_OPTIMIZED_RECOMMENDATIONS]]
 
     out_of_window_note = None
     if not optimized:
         if window_mode == "within":
             # No connections in window — show best outside with note
-            optimized = [e for _, e in results_outside[:2]]
+            optimized = [e for _, e in results_outside[:MAX_OPTIMIZED_RECOMMENDATIONS]]
             if optimized:
                 out_of_window_note = f"No connections found within {stay_window} min departure window — showing nearest available"
         else:
             return {"error": f"No viable connections found after {stay_window} min. Try a shorter delay or a different destination."}
-    elif window_mode == "within" and len(optimized) < 2 and results_outside:
+    elif window_mode == "within" and len(optimized) < MAX_OPTIMIZED_RECOMMENDATIONS and results_outside:
         seen_signatures = {entry_signature(item) for item in optimized}
         for _, entry in results_outside:
             signature = entry_signature(entry)
@@ -708,14 +720,14 @@ async def find_connections(
                 continue
             optimized.append(entry)
             seen_signatures.add(signature)
-            if len(optimized) == 2:
+            if len(optimized) == MAX_OPTIMIZED_RECOMMENDATIONS:
                 break
 
     if not optimized:
         return {"error": "No viable connections found. Try refreshing."}
 
     final = []
-    for index, entry in enumerate(optimized[:2]):
+    for index, entry in enumerate(optimized[:MAX_OPTIMIZED_RECOMMENDATIONS]):
         final.append({
             **entry,
             "recommendation_type": "best" if index == 0 else "backup",
@@ -767,33 +779,44 @@ async def get_timings(destination: str = "333", include_line2: bool = True):
     final_station = final_cfg["station_label"]
     final_label = final_cfg["label"]
     final_train_minutes = final_cfg["train_minutes"]
-    final_walk_minutes = final_cfg["transfer_walk"]
     line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
-    final_leg_label = (
-        f"Arrive {final_station}"
-        if final_cfg["is_train_only"]
-        else f"Walk {final_station} platform → {final_label} bay"
-    )
+    if destination == "333":
+        final_legs = [
+            {"label": f"Walk {final_station} platform → {final_label} bay", "min": final_cfg["transfer_walk"], "type": "end"},
+            {"label": "Bus 333 ride → apartment area", "min": RIDE_333_TO_HOME, "type": "bus"},
+            {"label": "Walk to apartment", "min": WALK_333_TO_HOME, "type": "walk2"},
+        ]
+    elif destination == "348":
+        final_legs = [
+            {"label": f"Walk {final_station} platform → {final_label} bay", "min": final_cfg["transfer_walk"], "type": "end"},
+            {"label": "Bus 348 ride → apartment area", "min": RIDE_348_TO_HOME, "type": "bus"},
+            {"label": "Walk to apartment", "min": WALK_348_TO_HOME, "type": "walk2"},
+        ]
+    else:
+        final_legs = [
+            {"label": "Walk Shoreline North/185th platform → Bus 348 bay", "min": WALK_1LINE_TO_348_BAY, "type": "end"},
+            {"label": "Drive home from train garage", "min": DRIVE_GARAGE_TO_HOME, "type": "bus"},
+        ]
 
     return {
         "mode1": [
             {"label": "Walk Odegaard → 1 Line platform", "min": WALK_MODE1_TO_1LINE,     "type": "walk"},
             {"label": f"{line_label} → {final_station}",                 "min": final_train_minutes, "type": "rail"},
-            {"label": final_leg_label, "min": final_walk_minutes, "type": "end"},
+            *final_legs,
         ],
         "bus_44_372": [
             {"label": "Walk Odegaard → stop", "min": WALK_TO_44_372,          "type": "walk"},
             {"label": "Bus 44/372 ride → Bay 1",             "min": RIDE_44_372_TO_UDIST,    "type": "bus"},
             {"label": "Walk Bay 1 → 1 Line platform",        "min": WALK_44_372_TO_1LINE,    "type": "walk2"},
             {"label": f"{line_label} → {final_station}",     "min": final_train_minutes, "type": "rail"},
-            {"label": final_leg_label, "min": final_walk_minutes, "type": "end"},
+            *final_legs,
         ],
         "bus_45": [
             {"label": "Walk Odegaard → stop", "min": WALK_TO_45,              "type": "walk"},
             {"label": "Bus 45 ride → Bay 5",                 "min": RIDE_45_TO_UDIST,        "type": "bus"},
             {"label": "Walk Bay 5 → 1 Line platform",        "min": WALK_45_TO_1LINE,        "type": "walk2"},
             {"label": f"{line_label} → {final_station}",     "min": final_train_minutes, "type": "rail"},
-            {"label": final_leg_label, "min": final_walk_minutes, "type": "end"},
+            *final_legs,
         ],
         "final_label": final_label,
         "final_station_label": final_station,
