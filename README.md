@@ -37,7 +37,7 @@ The planner pulls live arrivals from the [OneBusAway Puget Sound API](https://pu
 
 For each candidate trip, the planner works backwards from the destination:
 
-1. Finds the latest train that can physically make that destination.
+1. Finds the latest train that can still reach the selected destination branch in time, including the final bus when one is required.
 2. For **Walk mode**, calculates when you need to leave Odegaard to catch that train.
 3. For **Bus mode**, checks Bus 44, 372, and 45 for a feeder that still makes the platform in time.
 4. For **U-District Station start**, skips steps 2–3 and goes straight to train selection.
@@ -54,7 +54,7 @@ The app has two views:
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
 - **Timings** — static route leg breakdown driven by timing constants in `app.py`, with no live data
-- **Timetable** — live departure boards for Link, final buses, and feeder buses, sorted by soonest departure
+- **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
 
 ---
 
@@ -63,6 +63,7 @@ The app has two views:
 - Starting point selector: Odegaard Library or U-District Station
 - Destination selector: Bus 333, Bus 348, or Train only
 - Departure filter: `Within N min` (with fallback) or `After N min` (strict, no fallback)
+- Start buffer control for adding extra minutes before leaving or boarding
 - Walk and Bus commute modes (Odegaard start only)
 - Leave window: 15 / 30 min presets or a custom value (1–240 min)
 - Include Line 2 toggle
@@ -73,7 +74,7 @@ The app has two views:
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
 - Timings page with destination-specific display toggle
-- Timetable page with separate departure boards for Link, final buses, and feeder buses
+- Timetable page with separate departure boards for feeder buses, Link, final buses, and class-bound buses
 - Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
 
 ---
@@ -139,6 +140,7 @@ Open [http://localhost:8000](http://localhost:8000).
 |-----------|--------|---------|
 | `mode` | `1` Walk, `2` Bus | `2` |
 | `stay` | any integer from `1` to `240` | `30` |
+| `start_buffer` | any integer from `0` to `60` | `0` |
 | `window_mode` | `within` `after` | `within` |
 | `include_line2` | `true` `false` | `true` |
 | `destination` | `333` `348` `train_north` | `333` |
