@@ -186,6 +186,19 @@
       color: var(--c-muted);
       margin-bottom: 9px;
     }
+    .ctrl-split {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 18px;
+      align-items: flex-start;
+    }
+    .ctrl-col {
+      min-width: 0;
+      flex: 1 1 150px;
+    }
+    .ctrl-col.compact {
+      flex: 0 1 auto;
+    }
 
     /* ─── SEGMENTED CONTROL ─── */
     .seg-wrap {
@@ -296,6 +309,67 @@
     }
     .stay-custom-suffix {
       font-size: 13px;
+      white-space: nowrap;
+    }
+    .buffer-stepper {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      min-width: 152px;
+    }
+    .buffer-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--c-border);
+      background: var(--c-panel);
+      color: var(--c-ink2);
+      font: inherit;
+      font-size: 16px;
+      line-height: 1;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .buffer-btn:hover {
+      border-color: #909090;
+      color: var(--c-ink);
+    }
+    .buffer-input-wrap {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      flex: 1;
+      min-width: 0;
+    }
+    .buffer-input {
+      width: 46px;
+      padding: 0;
+      border: none;
+      background: transparent;
+      color: var(--c-ink);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      appearance: textfield;
+      -moz-appearance: textfield;
+    }
+    .buffer-input::-webkit-outer-spin-button,
+    .buffer-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    .buffer-input:focus {
+      outline: none;
+    }
+    .buffer-suffix {
+      font-size: 13px;
+      color: var(--c-muted);
       white-space: nowrap;
     }
 
@@ -843,8 +917,37 @@
       <div class="ctrl-row" id="mode-group">
         <div class="ctrl-icon">🚶</div>
         <div class="ctrl-body">
-          <div class="ctrl-label">Mode</div>
-          <div class="tabs" id="tabs"></div>
+          <div class="ctrl-split">
+            <div class="ctrl-col" id="mode-panel">
+              <div class="ctrl-label">Mode</div>
+              <div class="tabs" id="tabs"></div>
+            </div>
+            <div class="ctrl-col compact">
+              <div class="ctrl-label">Start Buffer</div>
+              <div class="idle-row">
+                <div class="buffer-stepper">
+                  <button class="buffer-btn" type="button" onclick="changeStartBuffer(-1)" aria-label="Decrease start buffer">−</button>
+                  <label class="buffer-input-wrap">
+                    <input
+                      type="number"
+                      min="0"
+                      max="60"
+                      step="1"
+                      inputmode="numeric"
+                      class="buffer-input"
+                      id="start-buffer-input"
+                      aria-label="Start buffer minutes"
+                      oninput="handleStartBufferInput()"
+                      onblur="applyStartBufferInput()"
+                      onkeydown="handleStartBufferKeydown(event)"
+                    />
+                    <span class="buffer-suffix">min</span>
+                  </label>
+                  <button class="buffer-btn" type="button" onclick="changeStartBuffer(1)" aria-label="Increase start buffer">+</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -955,7 +1058,7 @@
     </div>
 
     <div class="timings-note">
-      Base route timing assumptions — physical legs only. These do not include live transfer wait or buffer shown on Planner cards.
+      Base route timing assumptions — physical legs only. These do not include your custom start buffer or live transfer wait shown on Planner cards.
     </div>
 
     <div class="t-section">
@@ -990,8 +1093,8 @@
     <div class="t-section">
       <div class="t-title">Notes</div>
       <div class="timings-note" style="margin-bottom:0">
-        Walk times include buffer to avoid missed connections.<br>
-        Live transfer buffer is shown on Planner cards, not here.
+        Walk times show the base physical route only.<br>
+        Add any starting buffer in Planner, and live transfer buffer is shown on Planner cards.
       </div>
     </div>
 
@@ -1090,7 +1193,7 @@
     const desc = startPoint === 'u_district_station'
       ? `U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
       : mode === 1
-        ? `14 min walk from Odegaard → U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
+        ? `10 min walk from Odegaard → U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
         : `Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → ${LINE_LABEL()} → ${destinationText}`;
     document.getElementById('desc').textContent = desc;
   }
@@ -1111,7 +1214,7 @@
     document.getElementById('start-u-district-station').classList.toggle('active', startPoint === 'u_district_station');
   }
   function updateModeVisibility() {
-    document.getElementById('mode-group').style.display = startPoint === 'u_district_station' ? 'none' : 'flex';
+    document.getElementById('mode-panel').style.display = startPoint === 'u_district_station' ? 'none' : 'block';
   }
   function setStartPoint(value, btn) {
     startPoint = value;
@@ -1183,7 +1286,8 @@
     const windowLabel = setup.windowMode === 'after'
       ? `Leave after ${setup.stayWindow} min`
       : `Leave within ${setup.stayWindow} min`;
-    return `${startLabel} · ${modeLabel} · ${windowLabel} · ${destinationLabel} · ${line2Label}`;
+    const bufferLabel = `+${setup.startBuffer ?? 0} min start buffer`;
+    return `${startLabel} · ${modeLabel} · ${windowLabel} · ${bufferLabel} · ${destinationLabel} · ${line2Label}`;
   }
 
   function readSavedDefaultSetup() {
@@ -1196,11 +1300,13 @@
       if (!['within', 'after'].includes(parsed.windowMode || 'within')) return null;
       if (!['odegaard', 'u_district_station'].includes(parsed.startPoint || 'odegaard')) return null;
       if (!Number.isInteger(parsed.stayWindow) || parsed.stayWindow < 1 || parsed.stayWindow > 240) return null;
+      if (!Number.isInteger(parsed.startBuffer ?? 0) || (parsed.startBuffer ?? 0) < 0 || (parsed.startBuffer ?? 0) > 60) return null;
       if (!['333', '348', 'train_north'].includes(parsed.destination || parsed.finalBus || '333')) return null;
       if (typeof parsed.includeLine2 !== 'boolean') return null;
       parsed.windowMode   = parsed.windowMode   || 'within';
       parsed.startPoint   = parsed.startPoint   || 'odegaard';
       parsed.destination  = parsed.destination  || parsed.finalBus || '333';
+      parsed.startBuffer  = parsed.startBuffer  ?? 0;
       return parsed;
     } catch { return null; }
   }
@@ -1235,7 +1341,7 @@
     document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
   }
   function saveCurrentAsDefault() {
-    const setup = { mode, stayWindow, windowMode, destination, includeLine2, startPoint };
+    const setup = { mode, stayWindow, startBuffer, windowMode, destination, includeLine2, startPoint };
     localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
     renderSavedDefaultStatus();
   }
@@ -1248,6 +1354,7 @@
     if (!saved) { timingsDestination = destination; return; }
     mode            = saved.mode;
     stayWindow      = saved.stayWindow;
+    startBuffer     = saved.startBuffer;
     windowMode      = saved.windowMode;
     destination     = saved.destination;
     includeLine2    = saved.includeLine2;
@@ -1283,6 +1390,7 @@
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
     const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${w}</div>`).join('');
+    const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'boarding at U-District Station' : 'leaving from Odegaard'}.</div>`;
 
     // build steps HTML
     let stepsHtml = '<ul class="step-list">';
@@ -1327,6 +1435,7 @@
           </div>
           <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
           <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
+          ${startBufferText}
           ${c.recommendation_note ? `<div class="recommendation-note">${c.recommendation_note}</div>` : ''}
           ${warningHtml}
           ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
@@ -1341,6 +1450,7 @@
   }
 
   let stayWindow = 15;
+  let startBuffer = 0;
   let hasLoadedConnections = false;
   let activeLoadId = 0;
 
@@ -1376,6 +1486,42 @@
     if (customInput) customInput.value = '';
     updateStayButtons();
     markPlannerDirty();
+  }
+  function updateStartBufferControl() {
+    const input = document.getElementById('start-buffer-input');
+    if (input) input.value = startBuffer;
+  }
+  function normalizeStartBufferValue(rawValue) {
+    const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(0, Math.min(60, parsed));
+  }
+  function changeStartBuffer(delta) {
+    startBuffer = Math.max(0, Math.min(60, startBuffer + delta));
+    updateStartBufferControl();
+    markPlannerDirty();
+  }
+  function handleStartBufferInput() {
+    const input = document.getElementById('start-buffer-input');
+    if (!input) return;
+    const normalized = normalizeStartBufferValue(input.value);
+    if (normalized === null) return;
+    startBuffer = normalized;
+    input.value = normalized;
+    markPlannerDirty();
+  }
+  function applyStartBufferInput() {
+    const input = document.getElementById('start-buffer-input');
+    if (!input) return;
+    const normalized = normalizeStartBufferValue(input.value);
+    startBuffer = normalized ?? 0;
+    updateStartBufferControl();
+    markPlannerDirty();
+  }
+  function handleStartBufferKeydown(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyStartBufferInput();
   }
   function normalizeStayInputValue(rawValue) {
     const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
@@ -1529,7 +1675,7 @@
 
     try {
       const d = await fetch(
-        `/api/connections?mode=${mode}&stay=${stayWindow}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`
+        `/api/connections?mode=${mode}&stay=${stayWindow}&start_buffer=${startBuffer}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`
       ).then(r => r.json());
 
       if (loadId !== activeLoadId) return;
@@ -1699,6 +1845,7 @@
   updateModeVisibility();
   updateWindowModeButtons();
   updateStayButtons();
+  updateStartBufferControl();
   renderSavedDefaultStatus();
   renderSnapshots();
   updateTimingsDestinationButtons();
@@ -1728,7 +1875,7 @@
       return `<div class="t-leg"><div class="t-dot" style="background:${st.dot}"></div><div class="t-leg-label">${l.label}</div><div class="t-leg-val">${l.min} min</div></div>`;
     }).join('');
     document.getElementById(totId).innerHTML =
-      `Base time: <strong>${total} min</strong> (route timing only; live buffer and extra waits not included)`;
+      `Base time: <strong>${total} min</strong> (route timing only; custom start buffer and live transfer waits not included)`;
   }
   async function initTimings() {
     try {
