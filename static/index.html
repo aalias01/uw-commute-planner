@@ -199,6 +199,17 @@
     .ctrl-col.compact {
       flex: 0 1 auto;
     }
+    .ctrl-split.mode-buffer-split {
+      flex-wrap: nowrap;
+      gap: 12px;
+      align-items: flex-start;
+    }
+    .ctrl-split.mode-buffer-split .ctrl-col {
+      flex: 1 1 auto;
+    }
+    .ctrl-split.mode-buffer-split .ctrl-col.compact {
+      flex: 0 0 auto;
+    }
 
     /* ─── SEGMENTED CONTROL ─── */
     .seg-wrap {
@@ -315,21 +326,21 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 8px;
+      padding: 3px 8px;
       border-radius: 999px;
       border: 1.5px solid var(--c-border);
       background: var(--c-surface);
       min-width: 152px;
     }
     .buffer-btn {
-      width: 28px;
-      height: 28px;
+      width: 24px;
+      height: 24px;
       border-radius: 999px;
       border: 1px solid var(--c-border);
       background: var(--c-panel);
       color: var(--c-ink2);
       font: inherit;
-      font-size: 16px;
+      font-size: 15px;
       line-height: 1;
       cursor: pointer;
       flex-shrink: 0;
@@ -353,7 +364,7 @@
       background: transparent;
       color: var(--c-ink);
       font: inherit;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       text-align: center;
       appearance: textfield;
@@ -368,9 +379,42 @@
       outline: none;
     }
     .buffer-suffix {
-      font-size: 13px;
+      font-size: 12px;
       color: var(--c-muted);
       white-space: nowrap;
+    }
+
+    @media (max-width: 420px) {
+      .ctrl-split.mode-buffer-split {
+        gap: 8px;
+      }
+      .ctrl-split.mode-buffer-split .ctrl-label {
+        margin-bottom: 7px;
+      }
+      .ctrl-split.mode-buffer-split .tabs {
+        gap: 5px;
+      }
+      .ctrl-split.mode-buffer-split .tab {
+        padding: 6px 13px;
+        font-size: 12px;
+      }
+      .ctrl-split.mode-buffer-split .buffer-stepper {
+        min-width: 136px;
+        padding: 3px 6px;
+        gap: 4px;
+      }
+      .ctrl-split.mode-buffer-split .buffer-btn {
+        width: 22px;
+        height: 22px;
+        font-size: 14px;
+      }
+      .ctrl-split.mode-buffer-split .buffer-input {
+        width: 34px;
+        font-size: 12px;
+      }
+      .ctrl-split.mode-buffer-split .buffer-suffix {
+        font-size: 12px;
+      }
     }
 
     /* ─── MODE TABS (JS-generated) ─── */
@@ -917,7 +961,7 @@
       <div class="ctrl-row" id="mode-group">
         <div class="ctrl-icon">🚶</div>
         <div class="ctrl-body">
-          <div class="ctrl-split">
+          <div class="ctrl-split mode-buffer-split">
             <div class="ctrl-col" id="mode-panel">
               <div class="ctrl-label">Mode</div>
               <div class="tabs" id="tabs"></div>
