@@ -615,6 +615,11 @@
       letter-spacing: 0.07em;
       text-transform: uppercase;
       color: var(--c-muted);
+    }
+    .card-label-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
       margin-right: auto;
     }
     .card.top .card-label { color: var(--c-primary); }
@@ -1137,7 +1142,7 @@
           <span class="slider"></span>
         </label>
       </div>
-      <div class="toggle-status" id="line2-status">Line 2 trips will be considered in planner results.</div>
+      <div class="toggle-status" id="line2-status"></div>
       <div class="default-panel">
         <div class="default-status" id="default-setup-status">No saved default setup yet.</div>
         <div class="default-actions">
@@ -1502,6 +1507,31 @@
     return             { cls: 'comfortable', label: 'Comfortable' };
   }
 
+  function getBestOptionDeltaText(c) {
+    if (c.recommendation_type !== 'backup') return '';
+    const best = currentConnections.find(item => item.recommendation_type === 'best');
+    if (!best) return '';
+    const delta = c.total_mins - best.total_mins;
+    if (delta === 0) return 'Same total time as best option.';
+    if (delta > 0) return `${delta} min longer than best option.`;
+    return `${Math.abs(delta)} min shorter than best option.`;
+  }
+
+  function getBestOptionReasonText(c) {
+    const parts = [];
+    if (c.transfer_station_label) {
+      if ((c.transfer_wait_mins ?? null) !== null && (c.transfer_wait_mins ?? null) !== undefined) {
+        parts.push(`It gives one of the strongest connections at ${c.transfer_station_label}, with ${c.transfer_wait_mins} min before the next leg.`);
+      } else {
+        parts.push(`It had the strongest overall score for reaching ${c.transfer_station_label}.`);
+      }
+    } else {
+      parts.push('It had the strongest overall score for this destination.');
+    }
+    parts.push('The planner primarily prefers less waiting at the final station, then less extra transfer wait on the way, and then earlier departures when options are otherwise close.');
+    return parts.join(' ');
+  }
+
   function renderCard(c, first, index, sourceIndex = index) {
     const urgent      = c.minutes_until <= 5;
     const countText   = c.minutes_until === 0 ? 'Leave NOW' : `Leave in ${c.minutes_until} min`;
@@ -1523,6 +1553,8 @@
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
     const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${w}</div>`).join('');
     const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'boarding at U-District Station' : 'leaving from Odegaard'}.</div>`;
+    const comparisonText = getBestOptionDeltaText(c);
+    const bestReasonText = c.recommendation_type === 'best' ? getBestOptionReasonText(c) : '';
 
     // build steps HTML
     let stepsHtml = '<ul class="step-list">';
@@ -1554,7 +1586,10 @@
     return `
       <div class="card${first ? ' top' : ''}" id="plan-card-${sourceIndex}">
         <div class="card-header">
-          <span class="card-label">${cardLabel}</span>
+          <div class="card-label-wrap">
+            <span class="card-label">${cardLabel}</span>
+            ${c.recommendation_type === 'best' ? `<button class="hint-btn" type="button" aria-label="Why this is the best option" onclick="toggleHint('best-option-hint-${sourceIndex}', this)">?</button>` : ''}
+          </div>
           ${reliability ? `<span class="reliability-pill ${reliability.cls}">${reliability.label}</span>` : ''}
           ${badge}
         </div>
@@ -1567,6 +1602,8 @@
           </div>
           <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
           <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
+          ${bestReasonText ? `<div class="hint-text" id="best-option-hint-${sourceIndex}">${bestReasonText}</div>` : ''}
+          ${comparisonText ? `<div class="recommendation-note">${comparisonText}</div>` : ''}
           ${startBufferText}
           ${c.recommendation_note ? `<div class="recommendation-note">${c.recommendation_note}</div>` : ''}
           ${warningHtml}
@@ -1621,7 +1658,7 @@
 
   function updateLine2Status() {
     document.getElementById('line2-status').textContent = includeLine2
-      ? 'Line 2 trips will be considered in planner results.'
+      ? ''
       : 'Only 1 Line trips will be considered in planner results.';
   }
   function loadLine2Preference() {
