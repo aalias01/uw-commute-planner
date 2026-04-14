@@ -118,7 +118,7 @@ BUS_OPTIONS = {
 MODES = {
     1: {
         "name":        "Walk",
-        "description": f"{WALK_MODE1_TO_1LINE} min walk from Odegaard → U-District Station platform → 1 Line → Bus 333",
+        "description": f"{WALK_MODE1_TO_1LINE} min walk from Odegaard Library → U-District Station platform → 1 Line → Bus 333",
         "bus_options": [],
     },
     2: {
@@ -386,7 +386,7 @@ async def find_connections(
     else:
         if final_cfg["is_train_only"]:
             if mode == 1:
-                mode_description = f"{WALK_MODE1_TO_1LINE} min walk from Odegaard → U-District Station platform → {line_label} → {final_cfg['station_label']}"
+                mode_description = f"{WALK_MODE1_TO_1LINE} min walk from Odegaard Library → U-District Station platform → {line_label} → {final_cfg['station_label']}"
             else:
                 mode_description = f"Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → {line_label} → {final_cfg['station_label']}"
         else:
@@ -548,7 +548,7 @@ async def find_connections(
                     "is_realtime":     train.get("predicted", False),
                     "mode":            1,
                     "start":           start,
-                    "primary_action_label": "Leave Odegaard",
+                    "primary_action_label": "Leave Odegaard Library",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
                     "start_buffer_mins": start_buffer,
                     "warnings": [final_bus_warning] if final_bus_warning else [],
@@ -642,7 +642,7 @@ async def find_connections(
                     "is_realtime":    pick["is_realtime"] or train.get("predicted", False),
                     "mode":           2,
                     "start":          start,
-                    "primary_action_label": "Leave Odegaard",
+                    "primary_action_label": "Leave Odegaard Library",
                     "destination_label": final_cfg["label"] if not final_cfg["is_train_only"] else final_cfg["station_label"],
                     "start_buffer_mins": start_buffer,
                     "warnings": [*pick.get("warnings", []), *([final_bus_warning] if final_bus_warning else [])],

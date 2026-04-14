@@ -231,6 +231,9 @@
     .hint-text.visible {
       display: block;
     }
+    .card-body > .hint-text {
+      margin: -3px 0 12px;
+    }
     .ctrl-col.compact .label-row {
       min-width: 0;
     }
@@ -248,15 +251,41 @@
       flex: 0 1 auto;
     }
     .ctrl-split.mode-buffer-split {
-      flex-wrap: nowrap;
-      gap: 12px;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: max-content max-content;
+      justify-content: space-between;
+      align-items: start;
+      gap: 10px;
     }
     .ctrl-split.mode-buffer-split .ctrl-col {
-      flex: 1 1 auto;
+      min-width: 0;
     }
     .ctrl-split.mode-buffer-split .ctrl-col.compact {
-      flex: 0 0 auto;
+      justify-self: end;
+    }
+    .ctrl-split.mode-buffer-split .ctrl-label {
+      margin-bottom: 8px;
+      line-height: 1.2;
+    }
+    .ctrl-split.mode-buffer-split #mode-panel .ctrl-label {
+      display: inline-block;
+      padding-right: 22px;
+    }
+    .ctrl-split.mode-buffer-split .label-row {
+      margin-bottom: 8px;
+      align-items: center;
+      line-height: 1.2;
+    }
+    .ctrl-split.mode-buffer-split .label-row .ctrl-label {
+      margin-bottom: 0;
+    }
+    .ctrl-split.mode-buffer-split .tabs {
+      flex-wrap: nowrap;
+    }
+    .ctrl-split.mode-buffer-split .idle-row {
+      min-height: 38px;
+      align-items: center;
+      justify-content: flex-end;
     }
 
     /* ─── SEGMENTED CONTROL ─── */
@@ -286,7 +315,9 @@
       background: var(--c-surface);
       color: var(--c-ink);
       font-weight: 700;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.04);
+      box-shadow:
+        0 1px 4px rgba(0,0,0,0.10),
+        0 0 0 1.5px rgba(10, 92, 58, 0.24);
     }
     .seg-wrap .idle-chip:hover:not(.active) { color: var(--c-ink2); }
 
@@ -300,6 +331,7 @@
       align-items: center;
     }
     .idle-chip {
+      min-height: 38px;
       padding: 7px 15px;
       border-radius: 999px;
       font-size: 13px;
@@ -311,6 +343,9 @@
       transition: all 0.15s;
       white-space: nowrap;
       font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .idle-chip.active {
       background: var(--c-primary);
@@ -374,15 +409,20 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      min-height: 38px;
       padding: 3px 8px;
       border-radius: 999px;
       border: 1.5px solid var(--c-border);
       background: var(--c-surface);
       min-width: 152px;
     }
+    .buffer-stepper.active {
+      border-color: rgba(10, 92, 58, 0.24);
+      box-shadow: 0 0 0 1.5px rgba(10, 92, 58, 0.20);
+    }
     .buffer-btn {
-      width: 24px;
-      height: 24px;
+      width: 26px;
+      height: 26px;
       border-radius: 999px;
       border: 1px solid var(--c-border);
       background: var(--c-panel);
@@ -434,26 +474,26 @@
 
     @media (max-width: 420px) {
       .ctrl-split.mode-buffer-split {
+        grid-template-columns: 1fr auto;
         gap: 8px;
-      }
-      .ctrl-split.mode-buffer-split .ctrl-label {
-        margin-bottom: 7px;
       }
       .ctrl-split.mode-buffer-split .tabs {
         gap: 5px;
       }
       .ctrl-split.mode-buffer-split .tab {
+        min-height: 36px;
         padding: 6px 13px;
         font-size: 12px;
       }
       .ctrl-split.mode-buffer-split .buffer-stepper {
+        min-height: 36px;
         min-width: 136px;
         padding: 3px 6px;
         gap: 4px;
       }
       .ctrl-split.mode-buffer-split .buffer-btn {
-        width: 22px;
-        height: 22px;
+        width: 24px;
+        height: 24px;
         font-size: 14px;
       }
       .ctrl-split.mode-buffer-split .buffer-input {
@@ -468,9 +508,13 @@
     /* ─── MODE TABS (JS-generated) ─── */
     .tabs { display: flex; gap: 7px; flex-wrap: wrap; }
     .tab {
+      min-height: 38px;
       padding: 7px 15px; border-radius: 999px; font-size: 13px; font-weight: 500;
       border: 1.5px solid var(--c-border); background: var(--c-surface);
       color: var(--c-ink2); cursor: pointer; transition: all 0.15s; font-family: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
     }
     .tab.active { background: var(--c-primary); color: white; border-color: var(--c-primary); font-weight: 600; }
     .tab:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
@@ -1025,8 +1069,8 @@
         <div class="ctrl-icon">📍</div>
         <div class="ctrl-body">
           <div class="ctrl-label">Starting Point</div>
-          <div class="seg-wrap">
-            <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard</button>
+          <div class="seg-wrap" id="start-point-wrap">
+            <button class="idle-chip active" id="start-odegaard" onclick="setStartPoint('odegaard', this)">Odegaard Library</button>
             <button class="idle-chip" id="start-u-district-station" onclick="setStartPoint('u_district_station', this)">U-District Station</button>
           </div>
         </div>
@@ -1077,7 +1121,7 @@
         <div class="ctrl-icon">🔍</div>
         <div class="ctrl-body">
           <div class="ctrl-label">Departure Filter</div>
-          <div class="seg-wrap">
+          <div class="seg-wrap" id="window-mode-wrap">
             <button class="idle-chip active" id="window-mode-within" onclick="setWindowMode('within', this)">Within</button>
             <button class="idle-chip" id="window-mode-after" onclick="setWindowMode('after', this)">After</button>
           </div>
@@ -1190,7 +1234,7 @@
     <div class="t-section">
       <div class="t-title">Mode 1 — Walk</div>
       <div class="t-route">
-        <div class="t-route-name" id="timings-mode1-name">Odegaard → U-District Station → 1 Line → Bus 333</div>
+        <div class="t-route-name" id="timings-mode1-name">Odegaard Library → U-District Station → 1 Line → Bus 333</div>
         <div class="t-route-note">Reference timing. Live results may differ based on actual connections.</div>
         <div class="timeline" id="tl-mode1"></div>
         <div class="t-legs" id="lg-mode1"></div>
@@ -1320,7 +1364,7 @@
     const desc = startPoint === 'u_district_station'
       ? `U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
       : mode === 1
-        ? `10 min walk from Odegaard → U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
+        ? `10 min walk from Odegaard Library → U-District Station platform → ${LINE_LABEL()} → ${destinationText}`
         : `Bus 44 / 372 from 15th Ave NE & NE Campus Pkwy, or Bus 45 from W Stevens Way NE → U-District Station → ${LINE_LABEL()} → ${destinationText}`;
     document.getElementById('desc').textContent = desc;
   }
@@ -1412,7 +1456,7 @@
   }
 
   function formatDefaultSetupSummary(setup) {
-    const startLabel = setup.startPoint === 'u_district_station' ? 'U-District Station' : 'Odegaard';
+    const startLabel = setup.startPoint === 'u_district_station' ? 'U-District Station' : 'Odegaard Library';
     const modeLabel = setup.startPoint === 'u_district_station'
       ? 'Train boarding'
       : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
@@ -1549,10 +1593,10 @@
       : c.recommendation_type === 'backup'
         ? (index === 1 ? 'Backup option' : `More option ${index}`)
         : 'Best option';
-    const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Board train' : 'Leave Odegaard');
+    const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Head to platform' : 'Leave Odegaard Library');
     const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
     const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${w}</div>`).join('');
-    const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'boarding at U-District Station' : 'leaving from Odegaard'}.</div>`;
+    const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'heading to the platform at U-District Station' : 'leaving from Odegaard Library'}.</div>`;
     const comparisonText = getBestOptionDeltaText(c);
     const bestReasonText = c.recommendation_type === 'best' ? getBestOptionReasonText(c) : '';
 
@@ -1692,6 +1736,8 @@
   function updateStartBufferControl() {
     const input = document.getElementById('start-buffer-input');
     if (input) input.value = startBuffer;
+    const stepper = document.querySelector('.buffer-stepper');
+    if (stepper) stepper.classList.toggle('active', startBuffer > 0);
   }
   function normalizeStartBufferValue(rawValue) {
     const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
@@ -2081,7 +2127,7 @@
     try {
       const d = await fetch(`/api/timings?destination=${timingsDestination}&include_line2=${includeLine2}`).then(r => r.json());
       document.getElementById('timings-mode1-name').textContent =
-        `Odegaard → U-District Station → ${d.line_label} → ${d.is_train_only ? d.final_station_label : d.final_label}`;
+        `Odegaard Library → U-District Station → ${d.line_label} → ${d.is_train_only ? d.final_station_label : d.final_label}`;
       buildTimeline('tl-mode1', 'lg-mode1', 'tot-mode1', d.mode1);
       buildTimeline('tl-44',    'lg-44',    'tot-44',    d.bus_44_372);
       buildTimeline('tl-45',    'lg-45',    'tot-45',    d.bus_45);

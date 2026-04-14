@@ -38,11 +38,11 @@ The planner pulls live arrivals from the [OneBusAway Puget Sound API](https://pu
 For each candidate trip, the planner works backwards from the destination:
 
 1. Finds the latest train that can still reach the selected destination branch in time, including the final bus when one is required.
-2. For **Walk mode**, calculates when you need to leave Odegaard to catch that train.
+2. For **Walk mode**, calculates when you need to leave Odegaard Library to catch that train.
 3. For **Bus mode**, checks Bus 44, 372, and 45 for a feeder that still makes the platform in time.
 4. For **U-District Station start**, skips steps 2–3 and goes straight to train selection.
 5. Scores results by least wait at the final station, then least extra transfer wait, then earliest departure when tied.
-6. Returns up to three cards: Best option, Backup option, and Earliest departure.
+6. Returns the strongest ranked recommendations first, with Best option and Backup option shown by default, and can expand to show more ranked options plus a separate Earliest departure card when it is meaningfully different.
 
 The result is not just a route — it's a recommendation for **what to do right now**.
 
@@ -68,8 +68,10 @@ The app has two views:
 - Leave window: 15 / 30 min presets or a custom value (1–240 min)
 - Include Line 2 toggle
 - Transfer buffer with reliability labels: Tight / Okay / Comfortable
-- Up to three result cards: Best option, Backup option, and Earliest departure
+- Best option and Backup option by default, with a Show more control for additional ranked options
+- Separate Earliest departure card when it is meaningfully different from the ranked recommendations
 - Step-by-step visual timeline on each card with live vs scheduled badge
+- Inline help hints for start buffer, leave window controls, and why the best option was chosen
 - Saved defaults persisted to localStorage
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
