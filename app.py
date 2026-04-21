@@ -182,6 +182,19 @@ async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
     return resp.json().get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
 
 
+def planner_fetch_horizon(stay_window: int, window_mode: str) -> int:
+    """
+    Choose a practical search horizon for planner lookups.
+
+    We need extra room beyond the selected window so the planner can still:
+    - find later trains/final buses for `after`
+    - show nearby fallback options for `within`
+    - account for train travel and transfer timing
+    """
+    buffer_minutes = 90 if window_mode == "within" else 120
+    return max(120, min(360, stay_window + buffer_minutes))
+
+
 async def trip_serves_stop(trip_id: str, service_date: int, stop_id: str) -> bool:
     url = f"{OBA_BASE}/trip-details/{trip_id}.json"
     params = {"key": API_KEY, "serviceDate": service_date}
@@ -297,10 +310,16 @@ def dedupe_departure_rows(rows: list[dict]) -> list[dict]:
     return unique
 
 
-async def best_bus(bus_key: str, must_arrive_udist_by: datetime, now: datetime, start_buffer: int = 0) -> Optional[dict]:
+async def best_bus(
+    bus_key: str,
+    must_arrive_udist_by: datetime,
+    now: datetime,
+    start_buffer: int = 0,
+    minutes_after: int = 90,
+) -> Optional[dict]:
     cfg      = BUS_OPTIONS[bus_key]
     short_name = cfg["label"].replace("Bus ", "")
-    arrivals = by_route_label(await get_arrivals(cfg["stop_id"]), cfg["route_id"], short_name)
+    arrivals = by_route_label(await get_arrivals(cfg["stop_id"], minutes_after), cfg["route_id"], short_name)
 
     pick = None
     pick_warning = None
@@ -398,6 +417,7 @@ async def find_connections(
 
     # User-selected departure window boundary
     window_boundary = now + timedelta(minutes=stay_window)
+    fetch_horizon = planner_fetch_horizon(stay_window, window_mode)
 
     # Minimum time to physically catch the selected destination from the train
     min_buffer = final_cfg["transfer_walk"] + final_cfg["train_minutes"]
@@ -409,7 +429,7 @@ async def find_connections(
         return dt <= window_boundary if window_mode == "within" else dt >= window_boundary
 
     try:
-        raw_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
+        raw_arrivals = await get_arrivals(STOPS["u_district_station"], fetch_horizon)
         trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
         trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
         all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
@@ -418,7 +438,7 @@ async def find_connections(
             final_bus_arrivals = [{"train_only": True}]
         else:
             final_bus_arrivals = by_route_label(
-                await get_arrivals(final_cfg["stop_id"], 120),
+                await get_arrivals(final_cfg["stop_id"], fetch_horizon),
                 final_cfg["route_id"],
                 final_cfg["label"].replace("Bus ", ""),
             )
@@ -430,7 +450,7 @@ async def find_connections(
             final_bus_arrivals = matched_final_bus_arrivals or final_bus_arrivals
 
             if not final_bus_arrivals:
-                return {"error": f"No {final_cfg['label']} departures found in the next 2 hours."}
+                return {"error": f"No {final_cfg['label']} departures found in the next {fetch_horizon} min."}
 
         for last_bus in final_bus_arrivals:
             final_bus_warning = None
@@ -587,7 +607,13 @@ async def find_connections(
                     shoreline_wait_secs = (last_bus_departs - arrive_shoreline).total_seconds() if last_bus_departs else 0
 
                     for bk in cfg["bus_options"]:
-                        r = await best_bus(bk, train_departs, now, start_buffer=start_buffer)
+                        r = await best_bus(
+                            bk,
+                            train_departs,
+                            now,
+                            start_buffer=start_buffer,
+                            minutes_after=fetch_horizon,
+                        )
                         if r is None:
                             continue
                         if r["leave_odegaard"] < now - timedelta(minutes=1):
@@ -673,8 +699,16 @@ async def find_connections(
                 else:
                     results_outside.append((actual_idle_m2, entry2))
 
-            if len(results_in_window) + len(results_outside) >= 6:
-                break
+            # For "within", we can stop once we have a small pool of near-term candidates
+            # plus nearby fallbacks. For "after", we must keep scanning until we find
+            # enough in-window later departures, otherwise earlier trips can crowd out
+            # the search before we ever reach the requested threshold.
+            if window_mode == "within":
+                if len(results_in_window) + len(results_outside) >= 6:
+                    break
+            else:
+                if len(results_in_window) >= MAX_OPTIMIZED_RECOMMENDATIONS:
+                    break
 
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 429:
