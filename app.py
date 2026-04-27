@@ -192,7 +192,7 @@ def planner_fetch_horizon(stay_window: int, window_mode: str) -> int:
     - account for train travel and transfer timing
     """
     buffer_minutes = 90 if window_mode == "within" else 120
-    return max(120, min(360, stay_window + buffer_minutes))
+    return max(240, min(360, stay_window + buffer_minutes))
 
 
 async def trip_serves_stop(trip_id: str, service_date: int, stop_id: str) -> bool:
@@ -862,13 +862,14 @@ async def get_timings(destination: str = "333", include_line2: bool = True):
 @app.get("/api/timetable")
 async def get_timetable():
     now = datetime.now(SEATTLE)
+    timetable_horizon_minutes = 240
 
     try:
-        u_district_arrivals = await get_arrivals(STOPS["u_district_station"], 120)
-        shoreline_south_arrivals = await get_arrivals(STOPS["shoreline_south_bay2"], 120)
-        shoreline_north_arrivals = await get_arrivals(STOPS["shoreline_north_bay3"], 120)
-        feeder_stop_arrivals = await get_arrivals(BUS_OPTIONS["bus_44"]["stop_id"], 120)
-        bus_45_arrivals = await get_arrivals(BUS_OPTIONS["bus_45"]["stop_id"], 120)
+        u_district_arrivals = await get_arrivals(STOPS["u_district_station"], timetable_horizon_minutes)
+        shoreline_south_arrivals = await get_arrivals(STOPS["shoreline_south_bay2"], timetable_horizon_minutes)
+        shoreline_north_arrivals = await get_arrivals(STOPS["shoreline_north_bay3"], timetable_horizon_minutes)
+        feeder_stop_arrivals = await get_arrivals(BUS_OPTIONS["bus_44"]["stop_id"], timetable_horizon_minutes)
+        bus_45_arrivals = await get_arrivals(BUS_OPTIONS["bus_45"]["stop_id"], timetable_horizon_minutes)
     except httpx.HTTPStatusError as e:
         if e.response.status_code == 429:
             return {"error": "rate_limit"}
