@@ -1035,6 +1035,11 @@
       font-weight: 700;
       color: var(--c-primary);
     }
+    .board-actions {
+      display: flex;
+      justify-content: center;
+      margin-top: 14px;
+    }
   </style>
 </head>
 <body>
@@ -1312,6 +1317,13 @@
     final_buses: new Set(),
     feeder_buses: new Set(),
   };
+  const TIMETABLE_PAGE_SIZE = 8;
+  const timetableVisibleCounts = {
+    class: TIMETABLE_PAGE_SIZE,
+    link: TIMETABLE_PAGE_SIZE,
+    final_buses: TIMETABLE_PAGE_SIZE,
+    feeder_buses: TIMETABLE_PAGE_SIZE,
+  };
   let plannerRetryTimer = null;
   let timetableRetryTimer = null;
   let startPoint = 'odegaard';
@@ -1452,6 +1464,12 @@
     if (!set) return;
     if (checked) set.add(route);
     else set.delete(route);
+    timetableVisibleCounts[tabKey] = TIMETABLE_PAGE_SIZE;
+    renderTimetable();
+  }
+  function showMoreTimetableRows(tabKey) {
+    if (!timetableVisibleCounts[tabKey]) return;
+    timetableVisibleCounts[tabKey] += TIMETABLE_PAGE_SIZE;
     renderTimetable();
   }
 
@@ -1989,9 +2007,11 @@
     help.textContent = tab.help;
     reportTime.textContent = `Board time: ${timetableData.generated_at} — refresh for latest`;
     ensureTimetableFilters(timetableTab, tab.rows);
-    const visibleRows = ['class', 'link', 'final_buses', 'feeder_buses'].includes(timetableTab)
+    const filteredRows = ['class', 'link', 'final_buses', 'feeder_buses'].includes(timetableTab)
       ? tab.rows.filter(row => timetableFilters[timetableTab].has(row.route))
       : tab.rows;
+    const visibleRows = filteredRows.slice(0, timetableVisibleCounts[timetableTab] || TIMETABLE_PAGE_SIZE);
+    const canShowMore = filteredRows.length > visibleRows.length;
     const filterHtml = ['class', 'link', 'final_buses', 'feeder_buses'].includes(timetableTab)
       ? `<div class="board-filters">
           ${(tab.routes || [...new Set(tab.rows.map(row => row.route))]).map(route => `
@@ -2034,6 +2054,13 @@
           </div>
         `).join('')}
       </div>
+      ${canShowMore ? `
+        <div class="board-actions">
+          <button class="card-btn" onclick="showMoreTimetableRows('${timetableTab}')">
+            Show more departures
+          </button>
+        </div>
+      ` : ''}
     `;
   }
   async function loadTimetable() {
@@ -2069,6 +2096,9 @@
       }
       timetableData = d;
       timetableLoaded = true;
+      Object.keys(timetableVisibleCounts).forEach(key => {
+        timetableVisibleCounts[key] = TIMETABLE_PAGE_SIZE;
+      });
       if (timetableRetryTimer) {
         clearTimeout(timetableRetryTimer);
         timetableRetryTimer = null;
