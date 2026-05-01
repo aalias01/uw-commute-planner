@@ -1376,32 +1376,42 @@
   <div class="page" id="page-about">
     <div class="about-wrap">
       <p class="about-lede">
-        A small full-stack app for one real commute from UW. General transit apps are great at routes;
-        this one focuses on a repeated decision: <strong>when to leave</strong> and <strong>which option wastes the least time at transfers</strong>—using live Seattle-area transit data (<a href="https://pugetsound.onebusaway.org" target="_blank" rel="noopener noreferrer">OneBusAway Puget Sound</a>).
+        Built around one question: <strong>when should I leave, and from where, to catch the best connection home?</strong>
       </p>
 
       <div class="about-section">
-        <div class="about-h">What you’re using</div>
+        <div class="about-h">Why it exists</div>
         <p class="about-p">
-          Live arrivals use that API’s real-time predictions for Sound Transit, King County Metro, and other agencies across the Seattle region. Here, “Puget Sound” is shorthand for that metro area—the regional namesake waterway—not generic transit jargon.
-          You choose starting point (Odegaard or U-District Station), destination (Bus 333, Bus 348, or train only), walk vs bus mode where it applies, and filters—the planner ranks options for <em>right now</em>.
+          General transit apps are great at showing routes, but rarely answer a narrow, repeated decision well.
+          This app is built around one real commute from UW — instead of searching broadly, it works backwards from the destination and finds the best live option for the current moment.
         </p>
       </div>
 
       <div class="about-section">
-        <div class="about-h">How the planner thinks</div>
+        <div class="about-h">How the planner decides</div>
         <p class="about-p">
-          It works backward from your destination: find viable final legs and trains, then feeder buses or walks that still make the platform in time.
-          Results favor <strong>less waiting at the final station</strong>, then less extra transfer wait, then earlier departure when those are close.
+          For each candidate trip it works backwards: find the latest train that still connects to your destination, then a feeder bus or walk from campus that makes the platform in time.
+          Results are scored by <strong>least wait at the final station</strong>, then least extra transfer wait, then earliest departure when those are close.
+          The result isn't just a route — it's a recommendation for <em>what to do right now</em>.
         </p>
       </div>
 
       <div class="about-section">
-        <div class="about-h">Three tabs</div>
+        <div class="about-h">What's in each tab</div>
         <ul class="about-ul">
-          <li><strong>Planner</strong> — live recommendations, transfer buffer and reliability hints.</li>
-          <li><strong>Timings</strong> — static leg times from the app’s constants (no live API).</li>
-          <li><strong>Timetable</strong> — live departure boards by category (feeders, Link, finals, class-bound).</li>
+          <li><strong>Planner</strong> — live ranked recommendations with transfer buffer, reliability labels, and fallback behavior when no trips fit your window.</li>
+          <li><strong>Timings</strong> — static leg-by-leg breakdown of the route, driven by physical timing constants. No live data.</li>
+          <li><strong>Timetable</strong> — live departure boards for feeder buses, Link light rail, final buses, and class-bound routes.</li>
+        </ul>
+      </div>
+
+      <div class="about-section">
+        <div class="about-h">Tech stack</div>
+        <ul class="about-ul">
+          <li><strong>Backend:</strong> Python · FastAPI · httpx · uvicorn</li>
+          <li><strong>Frontend:</strong> Vanilla HTML / CSS / JavaScript</li>
+          <li><strong>Data:</strong> <a href="https://pugetsound.onebusaway.org" target="_blank" rel="noopener noreferrer">OneBusAway</a> real-time transit API</li>
+          <li><strong>Hosting:</strong> Vercel</li>
         </ul>
       </div>
 
@@ -1410,13 +1420,11 @@
           Full README on GitHub →
         </a>
         <p class="about-meta">
-          Built by Alvin Alias as a personal project.
-          <a href="https://www.linkedin.com/in/alvin-alias/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+          Built by <a href="https://www.linkedin.com/in/alvin-alias/" target="_blank" rel="noopener noreferrer">Alvin Alias</a> as a personal full-stack project around a real daily commute.
         </p>
       </div>
     </div>
   </div>
-
 <script src="/static/html2canvas.min.js"></script>
 <script>
   let mode = 2;
