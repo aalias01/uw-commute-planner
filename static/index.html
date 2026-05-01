@@ -123,10 +123,11 @@
     /* nav tab bar */
     .nav {
       display: flex;
+      flex-wrap: wrap;
       gap: 0;
     }
     .nav-btn {
-      padding: 10px 24px 11px;
+      padding: 10px 16px 11px;
       font-size: 13px;
       font-weight: 600;
       border: none;
@@ -148,6 +149,75 @@
     /* ─── PAGES ─── */
     .page { display: none; padding: 16px 14px 24px; }
     .page.visible { display: block; }
+
+    /* ─── ABOUT PAGE ─── */
+    .about-wrap {
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      box-shadow: var(--shadow-sm);
+      padding: 18px 16px 20px;
+      margin-bottom: 12px;
+    }
+    .about-lede {
+      font-size: 15px;
+      line-height: 1.55;
+      color: var(--c-ink2);
+      margin: 0 0 18px;
+    }
+    .about-lede a, .about-p a {
+      color: var(--c-primary);
+      font-weight: 600;
+      text-decoration: none;
+    }
+    .about-lede a:hover, .about-p a:hover { text-decoration: underline; }
+    .about-section { margin-bottom: 18px; }
+    .about-section:last-of-type { margin-bottom: 0; }
+    .about-h {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--c-muted);
+      margin: 0 0 8px;
+    }
+    .about-p {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--c-ink2);
+      margin: 0 0 10px;
+    }
+    .about-p:last-child { margin-bottom: 0; }
+    .about-ul {
+      margin: 0;
+      padding-left: 1.15rem;
+      font-size: 14px;
+      line-height: 1.45;
+      color: var(--c-ink2);
+    }
+    .about-ul li { margin-bottom: 6px; }
+    .about-ul li:last-child { margin-bottom: 0; }
+    .about-cta {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid var(--c-border);
+    }
+    .about-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--c-primary);
+      text-decoration: none;
+    }
+    .about-link:hover { text-decoration: underline; }
+    .about-meta {
+      font-size: 12px;
+      color: var(--c-muted);
+      margin-top: 14px;
+      line-height: 1.45;
+    }
+    .about-meta a { color: var(--c-primary); font-weight: 600; }
 
     /* ─── CONTROLS CARD ─── */
     .controls-card {
@@ -1061,6 +1131,7 @@
       <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
       <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
       <button class="nav-btn" onclick="showPage('timetable', this)">Timetable</button>
+      <button class="nav-btn" onclick="showPage('about', this)">About</button>
     </nav>
   </div>
 
@@ -1298,6 +1369,51 @@
       </div>
       <div class="board-help" id="timetable-help">Upcoming departures from the final transfer stops you care about.</div>
       <div id="timetable-out"><div class="loading">Open the Timetable tab or press Refresh board to load departures.</div></div>
+    </div>
+  </div>
+
+  <!-- ══ ABOUT PAGE ══ -->
+  <div class="page" id="page-about">
+    <div class="about-wrap">
+      <p class="about-lede">
+        A small full-stack app for one real commute from UW. General transit apps are great at routes;
+        this one focuses on a repeated decision: <strong>when to leave</strong> and <strong>which option wastes the least time at transfers</strong>—using live Puget Sound data.
+      </p>
+
+      <div class="about-section">
+        <div class="about-h">What you’re using</div>
+        <p class="about-p">
+          Live arrivals come from the <a href="https://pugetsound.onebusaway.org" target="_blank" rel="noopener noreferrer">OneBusAway Puget Sound</a> API.
+          You choose starting point (Odegaard or U-District Station), destination (Bus 333, Bus 348, or train only), walk vs bus mode where it applies, and filters—the planner ranks options for <em>right now</em>.
+        </p>
+      </div>
+
+      <div class="about-section">
+        <div class="about-h">How the planner thinks</div>
+        <p class="about-p">
+          It works backward from your destination: find viable final legs and trains, then feeder buses or walks that still make the platform in time.
+          Results favor <strong>less waiting at the final station</strong>, then less extra transfer wait, then earlier departure when those are close.
+        </p>
+      </div>
+
+      <div class="about-section">
+        <div class="about-h">Three tabs</div>
+        <ul class="about-ul">
+          <li><strong>Planner</strong> — live recommendations, transfer buffer and reliability hints.</li>
+          <li><strong>Timings</strong> — static leg times from the app’s constants (no live API).</li>
+          <li><strong>Timetable</strong> — live departure boards by category (feeders, Link, finals, class-bound).</li>
+        </ul>
+      </div>
+
+      <div class="about-cta">
+        <a class="about-link" href="https://github.com/aalias01/uw-commute-planner/blob/main/README.md" target="_blank" rel="noopener noreferrer">
+          Full README on GitHub →
+        </a>
+        <p class="about-meta">
+          Built by Alvin Alias as a personal project.
+          <a href="https://www.linkedin.com/in/alvin-alias/" target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        </p>
+      </div>
     </div>
   </div>
 
