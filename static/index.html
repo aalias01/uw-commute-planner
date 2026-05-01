@@ -1326,6 +1326,9 @@
   };
   let plannerRetryTimer = null;
   let timetableRetryTimer = null;
+  /** After settings change, wait this long (debounced) before auto-calling load(); then normal load + 3s rate-limit retries apply. */
+  const SETTINGS_AUTO_REFRESH_MS = 5000;
+  let plannerSettingsDebounceTimer = null;
   let startPoint = 'odegaard';
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
@@ -1527,7 +1530,8 @@
       customInput.value = isCustom ? stayWindow : '';
     }
   }
-  function markPlannerDirty(message = 'Settings changed. Refresh to load matching departures.') {
+  function markPlannerDirty(message = 'Settings changed. Auto-refresh in 5 seconds…') {
+    activeLoadId++;
     currentConnections = [];
     currentOutOfWindowNote = null;
     currentReportTimeLabel = '—';
@@ -1536,8 +1540,16 @@
       clearTimeout(plannerRetryTimer);
       plannerRetryTimer = null;
     }
+    if (plannerSettingsDebounceTimer) {
+      clearTimeout(plannerSettingsDebounceTimer);
+      plannerSettingsDebounceTimer = null;
+    }
     document.getElementById('report-time').textContent = 'Report time: —';
     document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
+    plannerSettingsDebounceTimer = window.setTimeout(() => {
+      plannerSettingsDebounceTimer = null;
+      load();
+    }, SETTINGS_AUTO_REFRESH_MS);
   }
   function saveCurrentAsDefault() {
     const setup = { mode, stayWindow, startBuffer, windowMode, destination, includeLine2, startPoint };
@@ -1922,6 +1934,10 @@
   }
 
   async function load() {
+    if (plannerSettingsDebounceTimer) {
+      clearTimeout(plannerSettingsDebounceTimer);
+      plannerSettingsDebounceTimer = null;
+    }
     const out        = document.getElementById('out');
     const refreshBtn = document.getElementById('refresh-btn');
     const reportTime = document.getElementById('report-time');
