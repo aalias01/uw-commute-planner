@@ -211,6 +211,17 @@
       text-decoration: none;
     }
     .about-link:hover { text-decoration: underline; }
+    .about-callout {
+      margin-top: 12px;
+      padding: 12px 14px;
+      border-left: 3px solid var(--c-primary);
+      background: var(--c-primary-lt);
+      border-radius: 0 10px 10px 0;
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.55;
+      color: var(--c-ink);
+    }
     .about-meta {
       font-size: 12px;
       color: var(--c-muted);
@@ -1382,33 +1393,35 @@
       <div class="about-section">
         <div class="about-h">Why it exists</div>
         <p class="about-p">
-          General transit apps are great at showing routes, but rarely answer a narrow, repeated decision well.
-          This app is built around one real commute from UW — instead of searching broadly, it works backwards from the destination and finds the best live option for the current moment.
+          General transit apps are great at showing routes, but they rarely answer a narrow, repeated decision well.
+          This app is built around one real commute from UW. Instead of searching broadly, it works backwards from the destination and finds the best live option right now.
         </p>
       </div>
 
       <div class="about-section">
         <div class="about-h">How the planner decides</div>
         <p class="about-p">
-          For each candidate trip it works backwards: find the latest train that still connects to your destination, then a feeder bus or walk from campus that makes the platform in time.
-          Results are scored by <strong>least wait at the final station</strong>, then least extra transfer wait, then earliest departure when those are close.
-          The result isn't just a route — it's a recommendation for <em>what to do right now</em>.
+          It solves the commute as a connected chain. Starting from your final bus home, it finds the right train at U-District Station, then checks which feeder bus from campus (or a direct walk) gets you to that train on time.
+          Every viable chain is scored: least wait at the final transfer station wins, then least extra wait along the way, then the earliest departure when those are close.
         </p>
+        <div class="about-callout">
+          Leaving sooner isn't always better. Most apps show you the next departure. This one picks the trip where you spend the least time waiting at connections.
+        </div>
       </div>
 
       <div class="about-section">
         <div class="about-h">What's in each tab</div>
         <ul class="about-ul">
-          <li><strong>Planner</strong> — live ranked recommendations with transfer buffer, reliability labels, and fallback behavior when no trips fit your window.</li>
-          <li><strong>Timings</strong> — static leg-by-leg breakdown of the route, driven by physical timing constants. No live data.</li>
-          <li><strong>Timetable</strong> — live departure boards for feeder buses, Link light rail, final buses, and class-bound routes.</li>
+          <li><strong>Planner:</strong> live ranked recommendations with transfer buffer, reliability labels, and fallback options when no trips fit your window.</li>
+          <li><strong>Timings:</strong> a static leg-by-leg breakdown of the route, based on physical timing constants. No live data.</li>
+          <li><strong>Timetable:</strong> live departure boards for feeder buses, Link light rail, final buses, and class-bound routes.</li>
         </ul>
       </div>
 
       <div class="about-section">
         <div class="about-h">Tech stack</div>
         <ul class="about-ul">
-          <li><strong>Backend:</strong> Python · FastAPI · httpx · uvicorn</li>
+          <li><strong>Backend:</strong> Python, FastAPI, httpx, uvicorn</li>
           <li><strong>Frontend:</strong> Vanilla HTML / CSS / JavaScript</li>
           <li><strong>Data:</strong> <a href="https://pugetsound.onebusaway.org" target="_blank" rel="noopener noreferrer">OneBusAway</a> real-time transit API</li>
           <li><strong>Hosting:</strong> Vercel</li>
@@ -1417,7 +1430,7 @@
 
       <div class="about-cta">
         <a class="about-link" href="https://github.com/aalias01/uw-commute-planner/blob/main/README.md" target="_blank" rel="noopener noreferrer">
-          Full README on GitHub →
+          Full README on GitHub &rarr;
         </a>
         <p class="about-meta">
           Built by <a href="https://www.linkedin.com/in/alvin-alias/" target="_blank" rel="noopener noreferrer">Alvin Alias</a> as a personal full-stack project around a real daily commute.
