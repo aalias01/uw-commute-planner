@@ -62,10 +62,10 @@ The app has two views:
 
 - Starting point selector: Odegaard Library or U-District Station
 - Destination selector: Bus 333, Bus 348, or Train only
-- Departure filter: `Within N min` (with fallback) or `After N min` (strict, no fallback)
+- Departure filter — **Within:** 15 / 30 min presets or custom 1–240 min; may fall back to the nearest viable option outside the window if nothing fits.
+- Departure filter — **After:** 15 / 30 min after now, or a clock time you can edit and nudge with ±15 min (strict window, no fallback). Optional API field `leave_after=HH:MM` (24-hour, server timezone `America/Los_Angeles`).
 - Start buffer control for adding extra minutes before leaving or boarding
 - Walk and Bus commute modes (Odegaard start only)
-- Leave window: 15 / 30 min presets or a custom value (1–240 min)
 - Include Line 2 toggle
 - Transfer buffer with reliability labels: Tight / Okay / Comfortable
 - Best option and Backup option by default, with a Show more control for additional ranked options
@@ -142,6 +142,7 @@ Open [http://localhost:8000](http://localhost:8000).
 |-----------|--------|---------|
 | `mode` | `1` Walk, `2` Bus | `2` |
 | `stay` | any integer from `1` to `240` | `30` |
+| `leave_after` | optional `HH:MM` (24-hour); used when `window_mode=after` to mean “earliest leave at or after this clock time” (next occurrence in `America/Los_Angeles`) | omitted |
 | `start_buffer` | any integer from `0` to `60` | `0` |
 | `window_mode` | `within` `after` | `within` |
 | `include_line2` | `true` `false` | `true` |

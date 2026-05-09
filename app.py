@@ -182,17 +182,41 @@ async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
     return resp.json().get("data", {}).get("entry", {}).get("arrivalsAndDepartures", [])
 
 
-def planner_fetch_horizon(stay_window: int, window_mode: str) -> int:
+def planner_fetch_horizon(offset_minutes: int, window_mode: str) -> int:
     """
     Choose a practical search horizon for planner lookups.
 
-    We need extra room beyond the selected window so the planner can still:
+    offset_minutes: for `within`, the departure window width; for `after`, minutes from now
+    until the earliest acceptable leave time.
+
+    We need extra room beyond that offset so the planner can still:
     - find later trains/final buses for `after`
     - show nearby fallback options for `within`
     - account for train travel and transfer timing
     """
     buffer_minutes = 90 if window_mode == "within" else 120
-    return max(240, min(360, stay_window + buffer_minutes))
+    return max(240, min(360, offset_minutes + buffer_minutes))
+
+
+def parse_leave_after_hhmm(now: datetime, raw: str) -> tuple[Optional[datetime], Optional[str]]:
+    """Interpret HH:MM in Seattle local time; first occurrence strictly after `now`."""
+    text = (raw or "").strip()
+    if not text:
+        return None, "Leave-after time is required (use HH:MM, 24-hour)."
+    parts = text.split(":")
+    if len(parts) != 2:
+        return None, "Leave-after time must be HH:MM (24-hour)."
+    try:
+        hour = int(parts[0])
+        minute = int(parts[1])
+    except ValueError:
+        return None, "Leave-after time must be HH:MM (24-hour)."
+    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+        return None, "Leave-after time must be HH:MM (24-hour)."
+    boundary = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+    if boundary <= now:
+        boundary += timedelta(days=1)
+    return boundary, None
 
 
 async def trip_serves_stop(trip_id: str, service_date: int, stop_id: str) -> bool:
@@ -375,12 +399,17 @@ async def find_connections(
     include_line2: bool = True,
     destination: str = "333",
     start: str = "odegaard",
+    leave_after: Optional[str] = None,
 ) -> dict:
     """
-    stay_window: how many minutes from now you are willing to stay at Odegaard.
-    Returns connections whose leave_odegaard falls within that window,
-    ranked by least idle time at Shoreline South.
-    Falls back to nearest connection outside the window if none exist within it.
+    stay_window: for `within`, minutes wide the departure window is; for legacy `after`
+    (no leave_after), minutes after now before you are willing to leave.
+
+    leave_after: optional HH:MM (24-hour, America/Los_Angeles). When window_mode is `after`
+    and this is set, the earliest acceptable leave time is the next occurrence of that clock time.
+
+    Returns connections whose leave time matches the window, ranked by least idle time at Shoreline South.
+    For `within`, falls back to nearest connection outside the window if none exist within it.
     """
     if now is None:
         now = datetime.now(SEATTLE)
@@ -398,6 +427,27 @@ async def find_connections(
     if start_buffer < 0 or start_buffer > 60:
         return {"error": f"Unknown start buffer {start_buffer}"}
 
+    leave_after_clean = (leave_after or "").strip()
+    stay_window_response = stay_window
+
+    if window_mode == "within":
+        if stay_window < 1 or stay_window > 240:
+            return {"error": f"Stay window must be between 1 and 240 minutes (got {stay_window})."}
+        window_boundary = now + timedelta(minutes=stay_window)
+        fetch_horizon = planner_fetch_horizon(stay_window, window_mode)
+    elif leave_after_clean:
+        window_boundary, parse_err = parse_leave_after_hhmm(now, leave_after_clean)
+        if parse_err:
+            return {"error": parse_err}
+        offset_minutes = max(0, int((window_boundary - now).total_seconds() / 60))
+        fetch_horizon = planner_fetch_horizon(offset_minutes, window_mode)
+        stay_window_response = offset_minutes
+    else:
+        if stay_window < 1 or stay_window > 240:
+            return {"error": f"After delay must be between 1 and 240 minutes (got {stay_window})."}
+        window_boundary = now + timedelta(minutes=stay_window)
+        fetch_horizon = planner_fetch_horizon(stay_window, window_mode)
+
     line_label = "1 Line / 2 Line" if include_line2 else "1 Line"
     if start == "u_district_station":
         final_desc = final_cfg["station_label"] if final_cfg["is_train_only"] else final_cfg["label"]
@@ -414,10 +464,6 @@ async def find_connections(
                 .replace("1 Line", line_label)
                 .replace("Bus 333", final_cfg["label"])
             )
-
-    # User-selected departure window boundary
-    window_boundary = now + timedelta(minutes=stay_window)
-    fetch_horizon = planner_fetch_horizon(stay_window, window_mode)
 
     # Minimum time to physically catch the selected destination from the train
     min_buffer = final_cfg["transfer_walk"] + final_cfg["train_minutes"]
@@ -745,7 +791,10 @@ async def find_connections(
             if optimized:
                 out_of_window_note = f"No connections found within {stay_window} min departure window — showing nearest available"
         else:
-            return {"error": f"No viable connections found after {stay_window} min. Try a shorter delay or a different destination."}
+            after_hint = fmt(window_boundary) if leave_after_clean else f"{stay_window} min"
+            return {
+                "error": f"No viable connections found after {after_hint}. Try an earlier time or a different destination.",
+            }
     elif window_mode == "within" and len(optimized) < MAX_OPTIMIZED_RECOMMENDATIONS and results_outside:
         seen_signatures = {entry_signature(item) for item in optimized}
         for _, entry in results_outside:
@@ -789,18 +838,37 @@ async def find_connections(
         "mode_description":   mode_description,
         "connections":        final,
         "out_of_window_note": out_of_window_note,
-        "stay_window":        stay_window,
+        "stay_window":        stay_window_response,
         "start_buffer":       start_buffer,
         "window_mode":        window_mode,
         "include_line2":      include_line2,
         "destination":        destination,
         "start":              start,
+        "leave_after":        leave_after_clean if window_mode == "after" and leave_after_clean else None,
     }
 
 
 @app.get("/api/connections")
-async def get_connections(mode: int = 1, stay: int = 30, start_buffer: int = 0, window_mode: str = "within", include_line2: bool = True, destination: str = "333", start: str = "odegaard"):
-    return await find_connections(mode, stay_window=stay, start_buffer=start_buffer, window_mode=window_mode, include_line2=include_line2, destination=destination, start=start)
+async def get_connections(
+    mode: int = 1,
+    stay: int = 30,
+    start_buffer: int = 0,
+    window_mode: str = "within",
+    include_line2: bool = True,
+    destination: str = "333",
+    start: str = "odegaard",
+    leave_after: Optional[str] = None,
+):
+    return await find_connections(
+        mode,
+        stay_window=stay,
+        start_buffer=start_buffer,
+        window_mode=window_mode,
+        include_line2=include_line2,
+        destination=destination,
+        start=start,
+        leave_after=leave_after,
+    )
 
 @app.get("/api/modes")
 async def get_modes():

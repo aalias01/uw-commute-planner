@@ -486,6 +486,48 @@
       font-size: 13px;
       white-space: nowrap;
     }
+    .stay-after-time-chip.stay-custom-chip {
+      min-width: 0;
+      padding: 4px 6px;
+      gap: 4px;
+    }
+    .stay-after-step-btn {
+      width: 24px;
+      height: 24px;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .stay-after-time-chip.active .stay-after-step-btn {
+      border-color: rgba(255, 255, 255, 0.4);
+      background: rgba(255, 255, 255, 0.18);
+      color: #fff;
+    }
+    .stay-after-time-chip.active .stay-after-step-btn:hover {
+      border-color: rgba(255, 255, 255, 0.65);
+      background: rgba(255, 255, 255, 0.28);
+      color: #fff;
+    }
+    .stay-after-input-inline {
+      font: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      padding: 0;
+      min-width: 4.25rem;
+      max-width: 100%;
+      color: inherit;
+      cursor: pointer;
+    }
+    .stay-after-input-inline:focus {
+      outline: none;
+      cursor: text;
+    }
+    /* Hide browser clock/calendar glyph on time inputs (± buttons + typing are enough). */
+    .stay-after-input-inline::-webkit-calendar-picker-indicator {
+      display: none;
+      -webkit-appearance: none;
+    }
     .buffer-stepper {
       display: inline-flex;
       align-items: center;
@@ -1222,9 +1264,9 @@
             <div class="ctrl-label" id="stay-label">Leave within:</div>
             <button class="hint-btn" type="button" aria-label="Leave window help" onclick="toggleHint('stay-window-hint', this)">?</button>
           </div>
-          <div class="idle-row" id="stay-row">
-            <button class="idle-chip active" id="stay-btn-15" onclick="setStay(15, this)">15 min</button>
-            <button class="idle-chip" id="stay-btn-30" onclick="setStay(30, this)">30 min</button>
+          <div class="idle-row" id="stay-row-within">
+            <button class="idle-chip active" id="stay-btn-15" type="button" onclick="setStayWithinPreset(15, this)">15 min</button>
+            <button class="idle-chip" id="stay-btn-30" type="button" onclick="setStayWithinPreset(30, this)">30 min</button>
             <label class="stay-custom-chip" id="stay-custom-chip">
               <input
                 type="number"
@@ -1235,15 +1277,44 @@
                 class="stay-custom-input"
                 id="stay-custom-input"
                 placeholder="Custom"
-                aria-label="Custom minutes"
-                oninput="handleCustomStayInput()"
-                onblur="applyCustomStay()"
-                onkeydown="handleCustomStayKeydown(event)"
+                aria-label="Custom leave-within minutes"
+                oninput="handleCustomStayWithinInput()"
+                onblur="applyCustomStayWithin()"
+                onkeydown="handleCustomStayWithinKeydown(event)"
               />
               <span class="stay-custom-suffix">min</span>
             </label>
           </div>
-          <div class="hint-text" id="stay-window-hint">"Leave within" shows trips departing within the selected window and falls back to the nearest later option if none fit. "Leave after" only shows trips departing at or after that point.</div>
+          <div class="idle-row" id="stay-row-after" style="display:none">
+            <button class="idle-chip" id="after-btn-15" type="button" onclick="setAfterDelayPreset('m15', this)">15 min</button>
+            <button class="idle-chip" id="after-btn-30" type="button" onclick="setAfterDelayPreset('m30', this)">30 min</button>
+            <div class="stay-custom-chip stay-after-time-chip" id="stay-after-clock-chip" role="group" aria-label="Leave after clock time">
+              <button
+                type="button"
+                class="buffer-btn stay-after-step-btn"
+                aria-label="15 minutes earlier"
+                onclick="adjustLeaveAfterMinutes(-15)"
+              >−</button>
+              <input
+                type="time"
+                step="900"
+                class="stay-after-input-inline"
+                id="leave-after-input"
+                aria-label="Leave after time (editable)"
+                onclick="selectLeaveAfterClock()"
+                onfocus="selectLeaveAfterClock()"
+                onchange="handleLeaveAfterChange()"
+                oninput="handleLeaveAfterChange()"
+              />
+              <button
+                type="button"
+                class="buffer-btn stay-after-step-btn"
+                aria-label="15 minutes later"
+                onclick="adjustLeaveAfterMinutes(15)"
+              >+</button>
+            </div>
+          </div>
+          <div class="hint-text" id="stay-window-hint">"Leave within" shows trips departing within the selected window and falls back to the nearest later option if none fit. "Leave after" only shows trips departing at or after the chosen time (today, or tomorrow if that time has already passed).</div>
         </div>
       </div>
 
@@ -1537,6 +1608,7 @@
   function setWindowMode(value, btn) {
     windowMode = value;
     updateWindowModeButtons();
+    updateDepartureFilterControls();
     markPlannerDirty();
   }
 
@@ -1613,6 +1685,29 @@
     renderTimetable();
   }
 
+  function computeDefaultLeaveAfterTime() {
+    const rounded = new Date(
+      Math.ceil((Date.now() + 60 * 60 * 1000) / (15 * 60 * 1000)) * (15 * 60 * 1000),
+    );
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${pad(rounded.getHours())}:${pad(rounded.getMinutes())}`;
+  }
+  function isValidLeaveAfterHHMM(s) {
+    if (!s || typeof s !== 'string') return false;
+    const parts = s.trim().split(':');
+    if (parts.length !== 2) return false;
+    const h = Number.parseInt(parts[0], 10);
+    const m = Number.parseInt(parts[1], 10);
+    return Number.isFinite(h) && Number.isFinite(m) && h >= 0 && h <= 23 && m >= 0 && m <= 59;
+  }
+  function formatLeaveAfterForSummary(hhmm) {
+    if (!isValidLeaveAfterHHMM(hhmm)) return hhmm || '';
+    const [h, m] = hhmm.split(':').map((x) => Number.parseInt(x, 10));
+    const d = new Date();
+    d.setHours(h, m, 0, 0);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
   function formatDefaultSetupSummary(setup) {
     const startLabel = setup.startPoint === 'u_district_station' ? 'U-District Station' : 'Odegaard Library';
     const modeLabel = setup.startPoint === 'u_district_station'
@@ -1620,9 +1715,16 @@
       : setup.mode === 1 ? 'Walk mode' : 'Bus mode';
     const line2Label = setup.includeLine2 ? 'Line 2 on' : 'Line 2 off';
     const destinationLabel = setup.destination === 'train_north' ? 'Train only' : `Bus ${setup.destination}`;
-    const windowLabel = setup.windowMode === 'after'
-      ? `Leave after ${setup.stayWindow} min`
-      : `Leave within ${setup.stayWindow} min`;
+    let windowLabel;
+    if (setup.windowMode === 'after') {
+      if (setup.afterDelayMode === 'm15') windowLabel = 'Leave after 15 min';
+      else if (setup.afterDelayMode === 'm30') windowLabel = 'Leave after 30 min';
+      else if (setup.leaveAfterTime && isValidLeaveAfterHHMM(setup.leaveAfterTime)) {
+        windowLabel = `Leave after ${formatLeaveAfterForSummary(setup.leaveAfterTime)}`;
+      } else windowLabel = `Leave after ${setup.stayWindow} min`;
+    } else {
+      windowLabel = `Leave within ${setup.stayWindow} min`;
+    }
     const bufferLabel = `+${setup.startBuffer ?? 0} min start buffer`;
     return `${startLabel} · ${modeLabel} · ${windowLabel} · ${bufferLabel} · ${destinationLabel} · ${line2Label}`;
   }
@@ -1653,19 +1755,34 @@
       ? `Saved default: ${formatDefaultSetupSummary(saved)}`
       : 'No saved default setup yet.';
   }
-  function updateStayButtons() {
-    const presetValues = [15, 30];
-    presetValues.forEach(value => {
+  function updateStayWithinButtons() {
+    [15, 30].forEach((value) => {
       const btn = document.getElementById(`stay-btn-${value}`);
       if (btn) btn.classList.toggle('active', value === stayWindow);
     });
     const customChip = document.getElementById('stay-custom-chip');
     const customInput = document.getElementById('stay-custom-input');
-    const isCustom = !presetValues.includes(stayWindow);
+    const isCustom = ![15, 30].includes(stayWindow);
     if (customChip) customChip.classList.toggle('active', isCustom);
-    if (customInput) {
-      customInput.value = isCustom ? stayWindow : '';
-    }
+    if (customInput) customInput.value = isCustom ? stayWindow : '';
+  }
+  function updateAfterDelayControls() {
+    const b15 = document.getElementById('after-btn-15');
+    const b30 = document.getElementById('after-btn-30');
+    const clockChip = document.getElementById('stay-after-clock-chip');
+    const input = document.getElementById('leave-after-input');
+    if (b15) b15.classList.toggle('active', afterDelayMode === 'm15');
+    if (b30) b30.classList.toggle('active', afterDelayMode === 'm30');
+    if (clockChip) clockChip.classList.toggle('active', afterDelayMode === 'clock');
+    if (input) input.value = leaveAfterTime;
+  }
+  function updateDepartureFilterControls() {
+    const withinRow = document.getElementById('stay-row-within');
+    const afterRow = document.getElementById('stay-row-after');
+    if (withinRow) withinRow.style.display = windowMode === 'within' ? 'flex' : 'none';
+    if (afterRow) afterRow.style.display = windowMode === 'after' ? 'flex' : 'none';
+    updateStayWithinButtons();
+    updateAfterDelayControls();
   }
   function markPlannerDirty(message = 'Settings changed. Auto-refresh in 5 seconds…') {
     activeLoadId++;
@@ -1689,7 +1806,17 @@
     }, SETTINGS_AUTO_REFRESH_MS);
   }
   function saveCurrentAsDefault() {
-    const setup = { mode, stayWindow, startBuffer, windowMode, destination, includeLine2, startPoint };
+    const setup = {
+      mode,
+      stayWindow,
+      leaveAfterTime,
+      afterDelayMode,
+      startBuffer,
+      windowMode,
+      destination,
+      includeLine2,
+      startPoint,
+    };
     localStorage.setItem(DEFAULT_SETUP_STORAGE_KEY, JSON.stringify(setup));
     renderSavedDefaultStatus();
   }
@@ -1708,6 +1835,41 @@
     includeLine2    = saved.includeLine2;
     startPoint      = saved.startPoint;
     timingsDestination = saved.destination;
+    if (['m15', 'm30', 'clock'].includes(saved.afterDelayMode)) {
+      afterDelayMode = saved.afterDelayMode;
+    } else if (saved.windowMode === 'after') {
+      if (saved.leaveAfterTime && isValidLeaveAfterHHMM(saved.leaveAfterTime)) {
+        afterDelayMode = 'clock';
+      } else if (saved.stayWindow === 15) {
+        afterDelayMode = 'm15';
+      } else if (saved.stayWindow === 30) {
+        afterDelayMode = 'm30';
+      } else {
+        afterDelayMode = 'clock';
+      }
+    } else {
+      afterDelayMode = 'clock';
+    }
+
+    if (saved.leaveAfterTime && isValidLeaveAfterHHMM(saved.leaveAfterTime)) {
+      leaveAfterTime = saved.leaveAfterTime;
+    } else if (
+      saved.windowMode === 'after'
+      && afterDelayMode === 'clock'
+      && !saved.afterDelayMode
+      && !(saved.leaveAfterTime && isValidLeaveAfterHHMM(saved.leaveAfterTime))
+      && Number.isInteger(saved.stayWindow)
+      && saved.stayWindow >= 1
+      && saved.stayWindow <= 240
+      && saved.stayWindow !== 15
+      && saved.stayWindow !== 30
+    ) {
+      const t = new Date(Date.now() + saved.stayWindow * 60 * 1000);
+      const pad = (n) => String(n).padStart(2, '0');
+      leaveAfterTime = `${pad(t.getHours())}:${pad(t.getMinutes())}`;
+    } else if (!isValidLeaveAfterHHMM(leaveAfterTime)) {
+      leaveAfterTime = computeDefaultLeaveAfterTime();
+    }
   }
 
   function getReliabilityMeta(c) {
@@ -1830,6 +1992,8 @@
   }
 
   let stayWindow = 15;
+  let leaveAfterTime = computeDefaultLeaveAfterTime();
+  let afterDelayMode = 'clock';
   let startBuffer = 0;
   let hasLoadedConnections = false;
   let activeLoadId = 0;
@@ -1893,11 +2057,81 @@
     updatePlannerDescription();
     markPlannerDirty();
   }
-  function setStay(val, btn) {
+  function normalizeStayWithinMinutes(rawValue) {
+    const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
+    if (!Number.isFinite(parsed)) return null;
+    return Math.max(1, Math.min(240, parsed));
+  }
+  function setStayWithinPreset(val, btn) {
     stayWindow = val;
     const customInput = document.getElementById('stay-custom-input');
     if (customInput) customInput.value = '';
-    updateStayButtons();
+    updateStayWithinButtons();
+    markPlannerDirty();
+  }
+  function handleCustomStayWithinInput() {
+    const customInput = document.getElementById('stay-custom-input');
+    if (!customInput) return;
+    const customChip = document.getElementById('stay-custom-chip');
+    const normalized = normalizeStayWithinMinutes(customInput.value);
+    const hasValue = customInput.value.trim().length > 0;
+    if (customChip) customChip.classList.toggle('active', hasValue);
+    if (normalized === null) return;
+    if (normalized === stayWindow && ![15, 30].includes(stayWindow)) return;
+    stayWindow = normalized;
+    customInput.value = normalized;
+    updateStayWithinButtons();
+    markPlannerDirty();
+  }
+  function applyCustomStayWithin() {
+    const customInput = document.getElementById('stay-custom-input');
+    if (!customInput) return;
+    const normalized = normalizeStayWithinMinutes(customInput.value);
+    if (normalized === null) {
+      customInput.focus();
+      return;
+    }
+    stayWindow = normalized;
+    customInput.value = normalized;
+    updateStayWithinButtons();
+    markPlannerDirty();
+  }
+  function handleCustomStayWithinKeydown(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    applyCustomStayWithin();
+  }
+  function setAfterDelayPreset(mode, btn) {
+    afterDelayMode = mode;
+    updateAfterDelayControls();
+    markPlannerDirty();
+  }
+  function selectLeaveAfterClock() {
+    if (afterDelayMode === 'clock') return;
+    afterDelayMode = 'clock';
+    updateAfterDelayControls();
+    markPlannerDirty();
+  }
+  function handleLeaveAfterChange() {
+    const input = document.getElementById('leave-after-input');
+    if (!input || !input.value) return;
+    afterDelayMode = 'clock';
+    leaveAfterTime = input.value;
+    updateAfterDelayControls();
+    markPlannerDirty();
+  }
+  function adjustLeaveAfterMinutes(deltaMinutes) {
+    let base = leaveAfterTime;
+    if (!isValidLeaveAfterHHMM(base)) base = computeDefaultLeaveAfterTime();
+    const [h, m] = base.split(':').map((x) => Number.parseInt(x, 10));
+    let total = h * 60 + m + deltaMinutes;
+    total = ((total % (24 * 60)) + (24 * 60)) % (24 * 60);
+    const nh = Math.floor(total / 60);
+    const nm = total % 60;
+    const pad = (n) => String(n).padStart(2, '0');
+    leaveAfterTime = `${pad(nh)}:${pad(nm)}`;
+    afterDelayMode = 'clock';
+    updateAfterDelayControls();
     markPlannerDirty();
   }
   function updateStartBufferControl() {
@@ -1938,44 +2172,6 @@
     event.preventDefault();
     applyStartBufferInput();
   }
-  function normalizeStayInputValue(rawValue) {
-    const parsed = Number.parseInt(String(rawValue || '').trim(), 10);
-    if (!Number.isFinite(parsed)) return null;
-    return Math.max(1, Math.min(240, parsed));
-  }
-  function handleCustomStayInput() {
-    const customInput = document.getElementById('stay-custom-input');
-    if (!customInput) return;
-    const customChip = document.getElementById('stay-custom-chip');
-    const normalized = normalizeStayInputValue(customInput.value);
-    const hasValue = customInput.value.trim().length > 0;
-    if (customChip) customChip.classList.toggle('active', hasValue);
-    if (normalized === null) return;
-    if (normalized === stayWindow && ![15, 30].includes(stayWindow)) return;
-    stayWindow = normalized;
-    customInput.value = normalized;
-    updateStayButtons();
-    markPlannerDirty();
-  }
-  function applyCustomStay() {
-    const customInput = document.getElementById('stay-custom-input');
-    if (!customInput) return;
-    const normalized = normalizeStayInputValue(customInput.value);
-    if (normalized === null) {
-      customInput.focus();
-      return;
-    }
-    stayWindow = normalized;
-    customInput.value = normalized;
-    updateStayButtons();
-    markPlannerDirty();
-  }
-  function handleCustomStayKeydown(event) {
-    if (event.key !== 'Enter') return;
-    event.preventDefault();
-    applyCustomStay();
-  }
-
   // snapshots
   function getSavedSnapshots() {
     try {
@@ -2093,8 +2289,20 @@
     }
 
     try {
+      let stayParam;
+      let afterParam = '';
+      if (windowMode === 'within') {
+        stayParam = stayWindow;
+      } else if (afterDelayMode === 'm15') {
+        stayParam = 15;
+      } else if (afterDelayMode === 'm30') {
+        stayParam = 30;
+      } else {
+        stayParam = 30;
+        afterParam = `&leave_after=${encodeURIComponent(leaveAfterTime)}`;
+      }
       const d = await fetch(
-        `/api/connections?mode=${mode}&stay=${stayWindow}&start_buffer=${startBuffer}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}`
+        `/api/connections?mode=${mode}&stay=${stayParam}&start_buffer=${startBuffer}&window_mode=${windowMode}&include_line2=${includeLine2}&destination=${destination}&start=${startPoint}${afterParam}`,
       ).then(r => r.json());
 
       if (loadId !== activeLoadId) return;
@@ -2273,7 +2481,7 @@
   updateStartPointButtons();
   updateModeVisibility();
   updateWindowModeButtons();
-  updateStayButtons();
+  updateDepartureFilterControls();
   updateStartBufferControl();
   renderSavedDefaultStatus();
   renderSnapshots();
