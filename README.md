@@ -138,7 +138,7 @@ Open [http://localhost:8000](http://localhost:8000).
 | `GET /api/timings` | Returns timing data for the Timings page |
 | `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
-| `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection slack summary (Link platform arrival vs final bus departure, minus transfer walk). Used by the Active tab |
+| `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection summary: clock minutes from Link platform arrival to bus departure (`minutes_after_link_arrival`), minus walk yields wait at the bay (`cushion_at_bay_minutes`; `slack_minutes` matches that cushion). Used by the Active tab |
 
 Each item from **`GET /api/connections`** includes a **`tracking`** object when trip IDs are present (for Follow trip / refresh).
 

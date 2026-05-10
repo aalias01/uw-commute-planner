@@ -892,6 +892,19 @@
     .step-time-val { font-size: 12px; font-weight: 700; color: var(--c-ink2); }
     .step-time-sep { font-size: 11px; color: var(--c-muted2); }
     .step-time-arr { font-size: 12px; color: var(--c-muted); }
+    .timing-chip {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--c-muted);
+      white-space: nowrap;
+      margin-left: 4px;
+    }
+    .board-timing {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--c-muted);
+      margin-top: 3px;
+    }
     .wait-item {
       display: flex; align-items: center; padding: 2px 0 4px 42px;
     }
@@ -2105,8 +2118,9 @@
       if (lr && lr.legs && !lr.error) {
         legsHtml = lr.legs.map((leg) => {
           const live = leg.is_realtime ? '<span class="badge badge-live">Live</span>' : '<span class="badge badge-sched">Sched</span>';
+          const timingExtra = leg.timing_note ? ` · ${escapeHtml(leg.timing_note)}` : '';
           const timeCell = leg.time_display
-            ? `<span class="active-leg-time">${escapeHtml(leg.time_display)}${leg.minutes_until != null ? ` <span style="font-weight:500;color:var(--c-muted)">(${leg.minutes_until}m)</span>` : ''}</span>`
+            ? `<span class="active-leg-time">${escapeHtml(leg.time_display)}${leg.minutes_until != null ? ` <span style="font-weight:500;color:var(--c-muted)">(${leg.minutes_until}m)</span>` : ''}${timingExtra}</span>`
             : '<span class="active-leg-time" style="color:var(--c-muted)">—</span>';
           const note = leg.note ? `<div class="active-leg-note">${escapeHtml(leg.note)}</div>` : '';
           return `<div class="active-leg-row"><div class="active-leg-label">${escapeHtml(leg.label)} ${live}</div>${timeCell}</div>${note}`;
@@ -2198,12 +2212,18 @@
     c.steps.forEach(s => {
       const depStr = s.depart || '';
       const arrStr = s.arrive || '';
+      const depChip = s.depart_timing_note
+        ? ` <span class="timing-chip">${escapeHtml(s.depart_timing_note)}</span>`
+        : '';
+      const arrChip = s.arrive_timing_note
+        ? ` <span class="timing-chip">${escapeHtml(s.arrive_timing_note)}</span>`
+        : '';
       const timeParts = depStr && arrStr
-        ? `<span class="step-time-val">${depStr}</span><span class="step-time-sep">→</span><span class="step-time-arr">${arrStr}</span>`
+        ? `<span class="step-time-val">${depStr}${depChip}</span><span class="step-time-sep">→</span><span class="step-time-arr">${arrStr}${arrChip}</span>`
         : depStr
-          ? `<span class="step-time-val">${depStr}</span>`
+          ? `<span class="step-time-val">${depStr}${depChip}</span>`
           : arrStr
-            ? `<span class="step-time-arr">→ ${arrStr}</span>`
+            ? `<span class="step-time-arr">→ ${arrStr}${arrChip}</span>`
             : '';
       stepsHtml += `
         <li class="step-item">
@@ -2677,7 +2697,7 @@
               <div class="board-stop">${row.stop}</div>
               ${row.warning ? `<div class="board-warning">⚠️ ${row.warning}</div>` : ''}
             </div>
-            <div class="board-depart">${row.depart}</div>
+            <div class="board-depart">${escapeHtml(row.depart)}${row.timing_note ? `<div class="board-timing">${escapeHtml(row.timing_note)}</div>` : ''}</div>
             <div class="board-in">${row.minutes_until === 0 ? 'Now' : `in ${row.minutes_until} min`}</div>
           </div>
         `).join('')}

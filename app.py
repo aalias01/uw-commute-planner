@@ -317,6 +317,46 @@ def platform_arrival_time(a: dict) -> datetime:
     return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
 
 
+def live_vs_schedule_depart_note(a: dict) -> Optional[str]:
+    """When live prediction exists: '3 min delay' or '2 min early' vs scheduled departure."""
+    if not a.get("predicted"):
+        return None
+    pred = int(a.get("predictedDepartureTime", 0))
+    sched = int(a.get("scheduledDepartureTime", 0))
+    if pred <= 0 or sched <= 0:
+        return None
+    delta_min = int(round((pred - sched) / 60000.0))
+    if delta_min > 0:
+        return f"{delta_min} min delay"
+    if delta_min < 0:
+        return f"{abs(delta_min)} min early"
+    return None
+
+
+def live_vs_schedule_arrival_note(a: dict) -> Optional[str]:
+    """When live prediction exists: compare predicted vs scheduled arrival."""
+    if not a.get("predicted"):
+        return None
+    pred = int(a.get("predictedArrivalTime", 0))
+    sched = int(a.get("scheduledArrivalTime", 0))
+    if pred <= 0 or sched <= 0:
+        return None
+    delta_min = int(round((pred - sched) / 60000.0))
+    if delta_min > 0:
+        return f"{delta_min} min delay"
+    if delta_min < 0:
+        return f"{abs(delta_min)} min early"
+    return None
+
+
+def matched_link_exit_row(train: dict, exit_by_trip: dict) -> Optional[dict]:
+    tid = train.get("tripId")
+    sd = train.get("serviceDate")
+    if tid is None or sd is None:
+        return None
+    return exit_by_trip.get((tid, sd))
+
+
 def index_link_arrivals_by_trip(arrivals: list, route_ids: set) -> dict:
     """Map (tripId, serviceDate) → row from Link arrivals at the Shoreline exit platform."""
     out = {}
@@ -467,7 +507,7 @@ def headsign_warning(route_label: str, expected: Optional[str], actual: str) -> 
 def format_departure_entry(a: dict, route_label: str, stop_label: str, now: datetime, destination_label: Optional[str] = None) -> dict:
     departs = depart_time(a)
     minutes_until = max(0, int((departs - now).total_seconds() / 60))
-    return {
+    row = {
         "route": route_label,
         "stop": stop_label,
         "destination": destination_label or a.get("tripHeadsign", "").strip() or route_label,
@@ -477,6 +517,10 @@ def format_departure_entry(a: dict, route_label: str, stop_label: str, now: date
         "status": "Live" if a.get("predicted", False) else "Scheduled",
         "is_realtime": a.get("predicted", False),
     }
+    note = live_vs_schedule_depart_note(a)
+    if note:
+        row["timing_note"] = note
+    return row
 
 
 def dedupe_departure_rows(rows: list[dict]) -> list[dict]:
@@ -553,6 +597,7 @@ async def best_bus(
         "arrive_udist":  d + timedelta(minutes=cfg["ride_to_udist"]),
         "arrive_1line":  arrive_1line,
         "is_realtime":   pick.get("predicted", False),
+        "boarding_timing_note": live_vs_schedule_depart_note(pick),
         "warnings":      [pick_warning] if pick_warning else [],
     }
 
@@ -712,6 +757,7 @@ async def find_connections(
                 arrive_shoreline = shoreline_arrival_for_train(
                     train, exit_by_trip, final_cfg["train_minutes"], train_departs,
                 )
+                exit_row_match = matched_link_exit_row(train, exit_by_trip)
                 total_mins_station = int(((last_bus_departs or arrive_shoreline) - leave_station).total_seconds() / 60)
                 actual_idle_station = int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_station = actual_idle_station - final_cfg["transfer_walk"]
@@ -739,6 +785,10 @@ async def find_connections(
                          "wait_after": None},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
+                         "depart_timing_note": live_vs_schedule_depart_note(train),
+                         "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
+                         if exit_row_match
+                         else None,
                          "wait_after": int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60) if not final_cfg["is_train_only"] else None},
                     ]
                 }
@@ -750,7 +800,8 @@ async def find_connections(
                 else:
                     entry["steps"].append(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
-                         "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None}
+                         "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None,
+                         "depart_timing_note": live_vs_schedule_depart_note(last_bus)}
                     )
                 entry["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus)
                 if in_window_station:
@@ -781,6 +832,7 @@ async def find_connections(
                 arrive_shoreline = shoreline_arrival_for_train(
                     train, exit_by_trip, final_cfg["train_minutes"], train_departs,
                 )
+                exit_row_match = matched_link_exit_row(train, exit_by_trip)
                 leave = train_departs - timedelta(minutes=WALK_MODE1_TO_1LINE + start_buffer)
                 if leave < now - timedelta(minutes=1):
                     continue
@@ -811,6 +863,10 @@ async def find_connections(
                          "wait_after": None},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
+                         "depart_timing_note": live_vs_schedule_depart_note(train),
+                         "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
+                         if exit_row_match
+                         else None,
                          "wait_after": int((((last_bus_departs or arrive_shoreline)) - arrive_shoreline).total_seconds() / 60) if not final_cfg["is_train_only"] else None},
                     ]
                 }
@@ -822,7 +878,8 @@ async def find_connections(
                 else:
                     entry["steps"].append(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
-                         "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None}
+                         "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None,
+                         "depart_timing_note": live_vs_schedule_depart_note(last_bus)}
                     )
                 entry["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus)
                 if in_window_m1:
@@ -879,6 +936,7 @@ async def find_connections(
                 arrive_shoreline = shoreline_arrival_for_train(
                     train, exit_by_trip, final_cfg["train_minutes"], train_departs,
                 )
+                exit_row_match = matched_link_exit_row(train, exit_by_trip)
 
                 leave = pick["leave_odegaard"]
                 total_mins_m2 = int((((last_bus_departs or arrive_shoreline)) - leave).total_seconds() / 60)
@@ -914,12 +972,17 @@ async def find_connections(
                     "steps": [
                         {"icon": "bus",  "label": f"{pick['label']} from {pick['stop_name']}",
                          "depart": fmt(pick["bus_departs"]), "arrive": fmt(pick["arrive_udist"]),
+                         "depart_timing_note": pick.get("boarding_timing_note"),
                          "wait_after": None},
                         {"icon": "walk", "label": "Walk to 1 Line platform",
                          "depart": fmt(pick["arrive_udist"]), "arrive": fmt(pick["arrive_1line"]),
                          "wait_after": max(0, int((train_departs - pick["arrive_1line"]).total_seconds() / 60))},
                         {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
                          "depart": fmt(train_departs),       "arrive": fmt(arrive_shoreline),
+                         "depart_timing_note": live_vs_schedule_depart_note(train),
+                         "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
+                         if exit_row_match
+                         else None,
                          "wait_after": int((((last_bus_departs or arrive_shoreline)) - arrive_shoreline).total_seconds() / 60) if not final_cfg["is_train_only"] else None},
                     ]
                 }
@@ -931,7 +994,8 @@ async def find_connections(
                 else:
                     entry2["steps"].append(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
-                         "depart": fmt(last_bus_departs),        "arrive": None}
+                         "depart": fmt(last_bus_departs),        "arrive": None,
+                         "depart_timing_note": live_vs_schedule_depart_note(last_bus)}
                     )
                 entry2["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus, feeder_pick=pick)
                 if in_window_m2:
@@ -1092,6 +1156,7 @@ async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
                 entry["time_display"] = fmt(dt)
                 entry["minutes_until"] = max(0, int((dt - now).total_seconds() / 60))
                 link_exit_dt = dt
+                tn = live_vs_schedule_arrival_note(row)
             else:
                 dt = depart_time(row)
                 entry["time_kind"] = "departure"
@@ -1099,6 +1164,9 @@ async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
                 entry["minutes_until"] = max(0, int((dt - now).total_seconds() / 60))
                 if leg.role == "final_bus":
                     final_bus_dt = dt
+                tn = live_vs_schedule_depart_note(row)
+            if tn:
+                entry["timing_note"] = tn
         else:
             entry["is_realtime"] = False
             entry["time_kind"] = None
@@ -1115,19 +1183,25 @@ async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
             "summary": "Train-only plan — no bus connection to check.",
         }
     elif link_exit_dt and final_bus_dt:
-        slack = (final_bus_dt - link_exit_dt).total_seconds() / 60.0 - body.transfer_walk_mins
+        # Clock gap from Link platform arrival → final bus departure (same user's example: 5.5 min).
+        gap_min = (final_bus_dt - link_exit_dt).total_seconds() / 60.0
+        walk_m = body.transfer_walk_mins
+        cushion = gap_min - walk_m  # time left at bay before bus pulls out
         bus_lbl = body.final_bus_label or "Bus"
-        ok = slack >= -0.25
+        ok = cushion >= -0.25
         connection = {
             "ok": ok,
-            "slack_minutes": round(slack, 1),
+            "minutes_after_link_arrival": round(gap_min, 1),
+            "cushion_at_bay_minutes": round(cushion, 1),
+            # Legacy field: same as cushion_at_bay (not the platform→bus clock gap).
+            "slack_minutes": round(cushion, 1),
             "summary": (
-                f"{bus_lbl} leaves about {slack:.1f} min after Link arrives at platform "
-                f"(you budget ~{body.transfer_walk_mins} min walk to the bay)."
+                f"{bus_lbl} departs about {gap_min:.1f} min after Link arrives at the platform "
+                f"(~{walk_m} min walk to the bay → about {cushion:.1f} min at the bay before it leaves)."
                 if ok
                 else (
-                    f"Tight or missed: about {slack:.1f} min after Link arrives vs "
-                    f"~{body.transfer_walk_mins} min walk — recheck times or replan."
+                    f"Tight or missed: only {gap_min:.1f} min from Link arrival to bus departure "
+                    f"with ~{walk_m} min walk to the bay (about {cushion:.1f} min at the bay — recheck or replan)."
                 )
             ),
         }
