@@ -2116,7 +2116,18 @@
 
       let legsHtml = '';
       if (lr && lr.legs && !lr.error) {
-        legsHtml = lr.legs.map((leg) => {
+        const legsSorted = lr.legs
+          .map((leg, idx) => ({ leg, idx }))
+          .sort((a, b) => {
+            const ma = a.leg.minutes_until;
+            const mb = b.leg.minutes_until;
+            if (ma != null && mb != null && ma !== mb) return ma - mb;
+            if (ma != null && mb == null) return -1;
+            if (ma == null && mb != null) return 1;
+            return a.idx - b.idx;
+          })
+          .map((x) => x.leg);
+        legsHtml = legsSorted.map((leg) => {
           const live = leg.is_realtime ? '<span class="badge badge-live">Live</span>' : '<span class="badge badge-sched">Sched</span>';
           const timingExtra = leg.timing_note ? ` · ${escapeHtml(leg.timing_note)}` : '';
           const timeCell = leg.time_display

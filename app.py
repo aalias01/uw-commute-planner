@@ -378,8 +378,27 @@ def build_connection_tracking(
     last_bus: Optional[dict],
     feeder_pick: Optional[dict] = None,
 ) -> dict:
-    """Identifiers for POST /api/track/refresh — live boards keyed by tripId + serviceDate."""
+    """Identifiers for POST /api/track/refresh — live boards keyed by tripId + serviceDate.
+
+    Leg order matches trip chronology: campus feeder (if any) → Link → final bus.
+    """
     legs = []
+    if (
+        feeder_pick
+        and feeder_pick.get("trip_id")
+        and feeder_pick.get("service_date") is not None
+        and feeder_pick.get("stop_id")
+    ):
+        legs.append(
+            {
+                "role": "feeder",
+                "label": f"{feeder_pick['label']} — board",
+                "stop_id": feeder_pick["stop_id"],
+                "trip_id": feeder_pick["trip_id"],
+                "service_date": feeder_pick["service_date"],
+                "route_id": feeder_pick.get("route_id"),
+            }
+        )
     tid = train.get("tripId")
     sd = train.get("serviceDate")
     if tid is not None and sd is not None:
@@ -418,22 +437,6 @@ def build_connection_tracking(
                 "trip_id": last_bus["tripId"],
                 "service_date": last_bus["serviceDate"],
                 "route_id": last_bus.get("routeId"),
-            }
-        )
-    if (
-        feeder_pick
-        and feeder_pick.get("trip_id")
-        and feeder_pick.get("service_date") is not None
-        and feeder_pick.get("stop_id")
-    ):
-        legs.append(
-            {
-                "role": "feeder",
-                "label": f"{feeder_pick['label']} — board",
-                "stop_id": feeder_pick["stop_id"],
-                "trip_id": feeder_pick["trip_id"],
-                "service_date": feeder_pick["service_date"],
-                "route_id": feeder_pick.get("route_id"),
             }
         )
     return {
