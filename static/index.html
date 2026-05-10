@@ -905,6 +905,7 @@
       padding: 10px 16px;
       border-top: 1px solid var(--c-bg);
       display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      flex-wrap: wrap;
     }
     .card-report-time { font-size: 11px; color: var(--c-muted2); }
     .card-btn {
@@ -916,6 +917,78 @@
     }
     .card-btn:hover:not(:disabled) { border-color: #888; color: var(--c-ink); }
     .card-btn:disabled { opacity: 0.5; cursor: default; }
+    .card-footer-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
+    .card-btn-accent {
+      border-color: rgba(0,200,112,0.45);
+      background: var(--c-primary-lt);
+      color: var(--c-primary);
+      font-weight: 600;
+    }
+    .card-btn-accent:hover:not(:disabled) { border-color: var(--c-primary-2); color: #063822; }
+
+    /* ─── ACTIVE TRIPS ─── */
+    .active-intro {
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--c-border);
+      box-shadow: var(--shadow-sm);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: var(--c-ink2);
+    }
+    .active-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+    .active-plan-card {
+      background: var(--c-surface);
+      border-radius: var(--radius-card);
+      border: 1px solid var(--c-border);
+      box-shadow: var(--shadow-sm);
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .active-plan-head {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--c-bg);
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .active-plan-title { font-size: 14px; font-weight: 700; color: var(--c-ink); line-height: 1.35; }
+    .active-plan-meta { font-size: 11px; color: var(--c-muted2); margin-top: 4px; }
+    .active-plan-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .connection-banner {
+      margin: 0 14px 12px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      line-height: 1.45;
+      font-weight: 600;
+    }
+    .connection-banner.ok { background: #e6f4ed; color: #065f46; border: 1px solid #a7d4bc; }
+    .connection-banner.bad { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .connection-banner.unknown { background: var(--c-amber-lt); color: #92400e; border: 1px solid #fde68a; }
+    .active-leg-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 14px;
+      font-size: 12px;
+      border-top: 1px solid var(--c-bg);
+    }
+    .active-leg-label { color: var(--c-ink2); flex: 1; min-width: 0; line-height: 1.4; }
+    .active-leg-time { font-weight: 700; color: var(--c-ink); white-space: nowrap; }
+    .active-leg-note { font-size: 11px; color: var(--c-muted); padding: 0 14px 10px; line-height: 1.4; }
+    .active-empty { font-size: 13px; color: var(--c-muted); text-align: center; padding: 28px 16px; line-height: 1.6; }
 
     /* ─── STATES ─── */
     .error {
@@ -1182,6 +1255,7 @@
     </div>
     <nav class="nav">
       <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
+      <button class="nav-btn" onclick="showPage('active', this)">Active</button>
       <button class="nav-btn" onclick="showPage('timings', this)">Timings</button>
       <button class="nav-btn" onclick="showPage('timetable', this)">Timetable</button>
       <button class="nav-btn" onclick="showPage('about', this)">About</button>
@@ -1373,6 +1447,18 @@
 
   </div>
 
+  <!-- ══ ACTIVE TRIPS PAGE ══ -->
+  <div class="page" id="page-active">
+    <div class="active-intro">
+      Follow a plan from the <strong>Planner</strong> tab to keep live trip IDs handy. Open <strong>Active</strong> anytime and refresh to pull the latest Link and bus times from OneBusAway — useful if trains or buses move mid-trip.
+    </div>
+    <div class="active-toolbar">
+      <span class="desc" id="active-summary-count">0 trips followed</span>
+      <button type="button" class="refresh" id="active-refresh-all-btn" onclick="refreshAllActivePlans()">↻ Refresh all</button>
+    </div>
+    <div id="active-plans-out"><div class="active-empty">No active trips yet. On Planner, tap <strong>Follow trip</strong> on a recommendation card.</div></div>
+  </div>
+
   <!-- ══ TIMINGS PAGE ══ -->
   <div class="page" id="page-timings">
 
@@ -1484,6 +1570,7 @@
         <div class="about-h">What's in each tab</div>
         <ul class="about-ul">
           <li><strong>Planner:</strong> live ranked recommendations with transfer buffer, reliability labels, and fallback options when no trips fit your window.</li>
+          <li><strong>Active:</strong> follow a chosen plan and refresh to re-query live predictions for the same train and bus trips while you travel.</li>
           <li><strong>Timings:</strong> a static leg-by-leg breakdown of the route, based on physical timing constants. No live data.</li>
           <li><strong>Timetable:</strong> live departure boards for feeder buses, Link light rail, final buses, and class-bound routes.</li>
         </ul>
@@ -1542,6 +1629,9 @@
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
   const MAX_SNAPSHOTS = 6;
+  const ACTIVE_PLANS_STORAGE_KEY = 'uw-commute-planner-active-plans';
+  const MAX_ACTIVE_PLANS = 5;
+  let activeRefreshBusy = false;
   let currentConnections = [];
   let currentOutOfWindowNote = null;
   let currentReportTimeLabel = '—';
@@ -1553,6 +1643,9 @@
     btn.classList.add('active');
     if (id === 'timetable' && !timetableLoaded) {
       loadTimetable();
+    }
+    if (id === 'active') {
+      renderActivePlans();
     }
   }
 
@@ -1872,6 +1965,176 @@
     }
   }
 
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function readActivePlans() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_PLANS_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+
+  function saveActivePlans(plans) {
+    localStorage.setItem(ACTIVE_PLANS_STORAGE_KEY, JSON.stringify(plans.slice(0, MAX_ACTIVE_PLANS)));
+  }
+
+  function trackingSignature(tr) {
+    if (!tr || !Array.isArray(tr.legs)) return '';
+    return tr.legs.map((l) => `${l.trip_id}:${l.service_date}:${l.role}`).sort().join('|');
+  }
+
+  function followPlan(sourceIndex) {
+    const c = currentConnections[sourceIndex];
+    const tr = c && c.tracking;
+    if (!tr || !Array.isArray(tr.legs) || tr.legs.length === 0) {
+      alert('This plan does not include trip IDs to follow (try refreshing Planner).');
+      return;
+    }
+    const sig = trackingSignature(tr);
+    let plans = readActivePlans().filter((p) => trackingSignature(p.tracking) !== sig);
+    const destLbl = DESTINATION_LABELS[tr.destination] || c.destination_label || '';
+    const title = `${c.leave_odegaard || 'Plan'} · ${destLbl}`;
+    plans.unshift({
+      id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      addedAt: Date.now(),
+      summaryTitle: title,
+      tracking: tr,
+      lastRefresh: null,
+    });
+    saveActivePlans(plans);
+    renderActivePlans();
+    const navBtns = document.querySelectorAll('.nav-btn');
+    const activeBtn = Array.from(navBtns).find((b) => b.textContent.trim() === 'Active');
+    if (activeBtn) showPage('active', activeBtn);
+  }
+
+  function removeActivePlan(id) {
+    saveActivePlans(readActivePlans().filter((p) => p.id !== id));
+    renderActivePlans();
+  }
+
+  async function refreshTrackedPlanApi(tracking) {
+    const res = await fetch('/api/track/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        legs: tracking.legs,
+        transfer_walk_mins: tracking.transfer_walk_mins ?? 0,
+        is_train_only: !!tracking.is_train_only,
+        final_bus_label: tracking.final_bus_label ?? null,
+      }),
+    });
+    return res.json();
+  }
+
+  async function refreshActivePlan(id) {
+    const plans = readActivePlans();
+    const idx = plans.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const btn = document.getElementById(`active-refresh-${id}`);
+    if (btn) btn.disabled = true;
+    try {
+      const data = await refreshTrackedPlanApi(plans[idx].tracking);
+      if (data.error) {
+        plans[idx].lastRefresh = { error: data.error, report_time: null };
+      } else {
+        plans[idx].lastRefresh = data;
+      }
+      saveActivePlans(plans);
+    } finally {
+      if (btn) btn.disabled = false;
+      renderActivePlans();
+    }
+  }
+
+  async function refreshAllActivePlans() {
+    const plans = readActivePlans();
+    if (!plans.length || activeRefreshBusy) return;
+    activeRefreshBusy = true;
+    const allBtn = document.getElementById('active-refresh-all-btn');
+    if (allBtn) allBtn.disabled = true;
+    try {
+      const next = [...plans];
+      for (let i = 0; i < next.length; i++) {
+        const data = await refreshTrackedPlanApi(next[i].tracking);
+        next[i].lastRefresh = data.error ? { error: data.error } : data;
+      }
+      saveActivePlans(next);
+    } finally {
+      activeRefreshBusy = false;
+      if (allBtn) allBtn.disabled = false;
+      renderActivePlans();
+    }
+  }
+
+  function renderActivePlans() {
+    const out = document.getElementById('active-plans-out');
+    const countEl = document.getElementById('active-summary-count');
+    if (!out) return;
+    const plans = readActivePlans();
+    if (countEl) {
+      countEl.textContent = plans.length === 0 ? '0 trips followed' : `${plans.length} trip${plans.length === 1 ? '' : 's'} followed`;
+    }
+    if (!plans.length) {
+      out.innerHTML = '<div class="active-empty">No active trips yet. On Planner, tap <strong>Follow trip</strong> on a recommendation card.</div>';
+      return;
+    }
+
+    out.innerHTML = plans.map((p) => {
+      const lr = p.lastRefresh;
+      let banner = '';
+      if (lr && lr.error) {
+        banner = `<div class="connection-banner unknown">${escapeHtml(lr.error === 'rate_limit' ? 'Rate limited — wait a moment and try again.' : lr.error)}</div>`;
+      } else if (lr && lr.connection) {
+        const conn = lr.connection;
+        const cls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
+        banner = `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
+      }
+
+      let legsHtml = '';
+      if (lr && lr.legs && !lr.error) {
+        legsHtml = lr.legs.map((leg) => {
+          const live = leg.is_realtime ? '<span class="badge badge-live">Live</span>' : '<span class="badge badge-sched">Sched</span>';
+          const timeCell = leg.time_display
+            ? `<span class="active-leg-time">${escapeHtml(leg.time_display)}${leg.minutes_until != null ? ` <span style="font-weight:500;color:var(--c-muted)">(${leg.minutes_until}m)</span>` : ''}</span>`
+            : '<span class="active-leg-time" style="color:var(--c-muted)">—</span>';
+          const note = leg.note ? `<div class="active-leg-note">${escapeHtml(leg.note)}</div>` : '';
+          return `<div class="active-leg-row"><div class="active-leg-label">${escapeHtml(leg.label)} ${live}</div>${timeCell}</div>${note}`;
+        }).join('');
+      } else {
+        legsHtml = '<div class="active-leg-row"><div class="active-leg-label">Not refreshed yet</div></div>';
+      }
+
+      const rt = lr && lr.report_time ? `Last refresh: ${escapeHtml(lr.report_time)}` : 'Tap refresh for live times';
+
+      return `
+        <div class="active-plan-card" id="active-card-${escapeHtml(p.id)}">
+          <div class="active-plan-head">
+            <div>
+              <div class="active-plan-title">${escapeHtml(p.summaryTitle)}</div>
+              <div class="active-plan-meta">${escapeHtml(rt)} · Added ${new Date(p.addedAt).toLocaleString()}</div>
+            </div>
+            <div class="active-plan-actions">
+              <button type="button" class="card-btn card-btn-accent" id="active-refresh-${escapeHtml(p.id)}" onclick="refreshActivePlan('${escapeHtml(p.id)}')">↻ Refresh</button>
+              <button type="button" class="card-btn" onclick="removeActivePlan('${escapeHtml(p.id)}')">Remove</button>
+            </div>
+          </div>
+          ${banner}
+          ${legsHtml}
+        </div>`;
+    }).join('');
+  }
+
   function getReliabilityMeta(c) {
     const cushion = c.transfer_cushion_mins;
     if (cushion === null || cushion === undefined) return null;
@@ -1928,6 +2191,7 @@
     const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'heading to the platform at U-District Station' : 'leaving from Odegaard Library'}.</div>`;
     const comparisonText = getBestOptionDeltaText(c);
     const bestReasonText = c.recommendation_type === 'best' ? getBestOptionReasonText(c) : '';
+    const canFollow = c.tracking && Array.isArray(c.tracking.legs) && c.tracking.legs.length > 0;
 
     // build steps HTML
     let stepsHtml = '<ul class="step-list">';
@@ -1986,7 +2250,10 @@
         </div>
         <div class="card-footer">
           <div class="card-report-time">As of ${currentReportTimeLabel}</div>
-          <button class="card-btn" id="save-btn-${sourceIndex}" onclick="saveSnapshot(${sourceIndex})">Save snapshot</button>
+          <div class="card-footer-actions">
+            ${canFollow ? `<button type="button" class="card-btn card-btn-accent" onclick="followPlan(${sourceIndex})">Follow trip</button>` : ''}
+            <button type="button" class="card-btn" id="save-btn-${sourceIndex}" onclick="saveSnapshot(${sourceIndex})">Save snapshot</button>
+          </div>
         </div>
       </div>`;
   }

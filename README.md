@@ -48,13 +48,13 @@ The result is not just a route — it's a recommendation for **what to do right 
 
 ---
 
-## Planner vs Timings
-
-The app has two views:
+## App tabs
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
+- **Active** — follow a specific recommendation (“Follow trip”); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable
 - **Timings** — static route leg breakdown driven by timing constants in `app.py`, with no live data
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
+- **About** — short product notes
 
 ---
 
@@ -75,6 +75,7 @@ The app has two views:
 - Saved defaults persisted to localStorage
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
+- **Active trips**: follow up to 5 plans in localStorage; per-plan or bulk refresh against live boards
 - Timings page with destination-specific display toggle
 - Timetable page with separate departure boards for feeder buses, Link, final buses, and class-bound buses
 - Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
@@ -97,13 +98,15 @@ Route-specific details:
 - Feeder buses use the rider-facing directional stop at 15th Ave NE & NE Campus Pkwy, with headsign mismatches surfaced as warnings instead of silently hidden.
 - Bus 45 trips are validated to confirm they serve the intended U-District dropoff stop.
 
+Link segment timing for planning uses **Sound Transit northbound platform stops** at Shoreline (`40_N15-T1`, `40_N17-T1`) matched by **trip ID** to live arrivals when available; Metro bus bays stay separate for final-bus boards.
+
 ---
 
 ## Tech Stack
 
 | Layer | Tools |
 |-------|-------|
-| Backend | Python, FastAPI, httpx, uvicorn |
+| Backend | Python, FastAPI, Pydantic, httpx, uvicorn |
 | Frontend | Vanilla HTML / CSS / JavaScript |
 | Data | OneBusAway Puget Sound REST API |
 | Hosting | Vercel |
@@ -135,6 +138,9 @@ Open [http://localhost:8000](http://localhost:8000).
 | `GET /api/timings` | Returns timing data for the Timings page |
 | `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
+| `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection slack summary (Link platform arrival vs final bus departure, minus transfer walk). Used by the Active tab |
+
+Each item from **`GET /api/connections`** includes a **`tracking`** object when trip IDs are present (for Follow trip / refresh).
 
 **`/api/connections` parameters:**
 

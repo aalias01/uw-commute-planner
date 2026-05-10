@@ -9,6 +9,8 @@ from zoneinfo import ZoneInfo
 
 SEATTLE = ZoneInfo("America/Los_Angeles")
 from typing import Optional
+
+from pydantic import BaseModel, Field, field_validator
 import uvicorn
 
 # API key — set via environment variable before running:
@@ -180,6 +182,27 @@ DESTINATION_OPTIONS = {
 }
 
 
+class TrackLegSpec(BaseModel):
+    role: str
+    label: str
+    stop_id: str
+    trip_id: str
+    service_date: int = Field(..., description="OBA serviceDate")
+    route_id: Optional[str] = None
+
+    @field_validator("service_date", mode="before")
+    @classmethod
+    def coerce_service_date(cls, v):
+        return int(v)
+
+
+class TrackRefreshBody(BaseModel):
+    legs: list[TrackLegSpec]
+    transfer_walk_mins: int = 0
+    is_train_only: bool = False
+    final_bus_label: Optional[str] = None
+
+
 async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
     url    = f"{OBA_BASE}/arrivals-and-departures-for-stop/{stop_id}.json"
     params = {"key": API_KEY, "minutesAfter": minutes_after, "minutesBefore": 0}
@@ -268,6 +291,24 @@ def depart_time(a: dict) -> datetime:
     return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
 
 
+def find_arrival_row(
+    arrivals: list,
+    trip_id: str,
+    service_date: int,
+    route_id: Optional[str],
+) -> Optional[dict]:
+    for a in arrivals:
+        if a.get("tripId") != trip_id:
+            continue
+        sd = a.get("serviceDate")
+        if sd is None or int(sd) != int(service_date):
+            continue
+        if route_id and a.get("routeId") != route_id:
+            continue
+        return a
+    return None
+
+
 def platform_arrival_time(a: dict) -> datetime:
     """Predicted or scheduled arrival at a platform (for alighting)."""
     predicted = a.get("predictedArrivalTime", 0)
@@ -288,6 +329,81 @@ def index_link_arrivals_by_trip(arrivals: list, route_ids: set) -> dict:
             continue
         out[(tid, sd)] = a
     return out
+
+
+def build_connection_tracking(
+    destination: str,
+    final_cfg: dict,
+    train: dict,
+    last_bus: Optional[dict],
+    feeder_pick: Optional[dict] = None,
+) -> dict:
+    """Identifiers for POST /api/track/refresh — live boards keyed by tripId + serviceDate."""
+    legs = []
+    tid = train.get("tripId")
+    sd = train.get("serviceDate")
+    if tid is not None and sd is not None:
+        legs.append(
+            {
+                "role": "link_udist",
+                "label": "Link — U District (departure)",
+                "stop_id": STOPS["u_district_station"],
+                "trip_id": tid,
+                "service_date": sd,
+                "route_id": train.get("routeId"),
+            }
+        )
+        legs.append(
+            {
+                "role": "link_exit",
+                "label": f"Link — {final_cfg['station_label']} (arrival)",
+                "stop_id": final_cfg["link_exit_stop_id"],
+                "trip_id": tid,
+                "service_date": sd,
+                "route_id": train.get("routeId"),
+            }
+        )
+    if (
+        last_bus
+        and not last_bus.get("train_only")
+        and last_bus.get("tripId")
+        and last_bus.get("serviceDate") is not None
+        and final_cfg.get("stop_id")
+    ):
+        legs.append(
+            {
+                "role": "final_bus",
+                "label": f"{final_cfg['label']} — bay departure",
+                "stop_id": final_cfg["stop_id"],
+                "trip_id": last_bus["tripId"],
+                "service_date": last_bus["serviceDate"],
+                "route_id": last_bus.get("routeId"),
+            }
+        )
+    if (
+        feeder_pick
+        and feeder_pick.get("trip_id")
+        and feeder_pick.get("service_date") is not None
+        and feeder_pick.get("stop_id")
+    ):
+        legs.append(
+            {
+                "role": "feeder",
+                "label": f"{feeder_pick['label']} — board",
+                "stop_id": feeder_pick["stop_id"],
+                "trip_id": feeder_pick["trip_id"],
+                "service_date": feeder_pick["service_date"],
+                "route_id": feeder_pick.get("route_id"),
+            }
+        )
+    return {
+        "destination": destination,
+        "transfer_walk_mins": final_cfg["transfer_walk"],
+        "is_train_only": final_cfg["is_train_only"],
+        "station_label": final_cfg["station_label"],
+        "final_bus_label": final_cfg.get("label"),
+        "legs": legs,
+    }
 
 
 def shoreline_arrival_for_train(
@@ -387,7 +503,7 @@ async def best_bus(
     start_buffer: int = 0,
     minutes_after: int = 90,
 ) -> Optional[dict]:
-    cfg      = BUS_OPTIONS[bus_key]
+    cfg = BUS_OPTIONS[bus_key]
     short_name = cfg["label"].replace("Bus ", "")
     arrivals = by_route_label(await get_arrivals(cfg["stop_id"], minutes_after), cfg["route_id"], short_name)
 
@@ -422,8 +538,13 @@ async def best_bus(
     d = depart_time(pick)
     arrive_1line = d + timedelta(minutes=cfg["ride_to_udist"] + cfg["walk_to_1line"])
     return {
+        "bus_key":       bus_key,
         "label":         cfg["label"],
         "stop_name":     cfg["stop_name"],
+        "stop_id":       cfg["stop_id"],
+        "trip_id":       pick.get("tripId"),
+        "service_date":  pick.get("serviceDate"),
+        "route_id":      pick.get("routeId"),
         "walk_to_stop":  cfg["walk_to_stop"],
         "start_buffer_mins": start_buffer,
         "walk_to_1line": cfg["walk_to_1line"],
@@ -631,6 +752,7 @@ async def find_connections(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
                          "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None}
                     )
+                entry["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus)
                 if in_window_station:
                     results_in_window.append((actual_idle_station, entry))
                 else:
@@ -702,6 +824,7 @@ async def find_connections(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
                          "depart": fmt(last_bus_departs), "arrive": None, "wait_after": None}
                     )
+                entry["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus)
                 if in_window_m1:
                     results_in_window.append((actual_idle_m1, entry))
                 else:
@@ -810,6 +933,7 @@ async def find_connections(
                         {"icon": "bus",  "label": f"{final_cfg['label']} → Home",
                          "depart": fmt(last_bus_departs),        "arrive": None}
                     )
+                entry2["tracking"] = build_connection_tracking(destination, final_cfg, train, last_bus, feeder_pick=pick)
                 if in_window_m2:
                     results_in_window.append((actual_idle_m2, entry2))
                 else:
@@ -939,6 +1063,100 @@ async def get_connections(
         start=start,
         leave_after=leave_after,
     )
+
+
+async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
+    legs_spec = body.legs
+    if not legs_spec:
+        return {"error": "No legs to refresh"}
+
+    horizon = 270
+    stop_ids = sorted({leg.stop_id for leg in legs_spec})
+    fetched = await asyncio.gather(*[get_arrivals(sid, horizon) for sid in stop_ids])
+    arrivals_by_stop = dict(zip(stop_ids, fetched))
+
+    now = datetime.now(SEATTLE)
+    out_legs = []
+    link_exit_dt = None
+    final_bus_dt = None
+
+    for leg in legs_spec:
+        arrivals = arrivals_by_stop.get(leg.stop_id, [])
+        row = find_arrival_row(arrivals, leg.trip_id, leg.service_date, leg.route_id)
+        entry = {"role": leg.role, "label": leg.label, "found": row is not None}
+        if row:
+            entry["is_realtime"] = bool(row.get("predicted"))
+            if leg.role == "link_exit":
+                dt = platform_arrival_time(row)
+                entry["time_kind"] = "arrival"
+                entry["time_display"] = fmt(dt)
+                entry["minutes_until"] = max(0, int((dt - now).total_seconds() / 60))
+                link_exit_dt = dt
+            else:
+                dt = depart_time(row)
+                entry["time_kind"] = "departure"
+                entry["time_display"] = fmt(dt)
+                entry["minutes_until"] = max(0, int((dt - now).total_seconds() / 60))
+                if leg.role == "final_bus":
+                    final_bus_dt = dt
+        else:
+            entry["is_realtime"] = False
+            entry["time_kind"] = None
+            entry["time_display"] = None
+            entry["minutes_until"] = None
+            entry["note"] = "Not on the live board — trip may have finished or IDs may have changed."
+        out_legs.append(entry)
+
+    connection = None
+    if body.is_train_only:
+        connection = {
+            "ok": True,
+            "slack_minutes": None,
+            "summary": "Train-only plan — no bus connection to check.",
+        }
+    elif link_exit_dt and final_bus_dt:
+        slack = (final_bus_dt - link_exit_dt).total_seconds() / 60.0 - body.transfer_walk_mins
+        bus_lbl = body.final_bus_label or "Bus"
+        ok = slack >= -0.25
+        connection = {
+            "ok": ok,
+            "slack_minutes": round(slack, 1),
+            "summary": (
+                f"{bus_lbl} leaves about {slack:.1f} min after Link arrives at platform "
+                f"(you budget ~{body.transfer_walk_mins} min walk to the bay)."
+                if ok
+                else (
+                    f"Tight or missed: about {slack:.1f} min after Link arrives vs "
+                    f"~{body.transfer_walk_mins} min walk — recheck times or replan."
+                )
+            ),
+        }
+    else:
+        missing = []
+        if not link_exit_dt:
+            missing.append("Link arrival at Shoreline platform")
+        if not body.is_train_only and not final_bus_dt:
+            missing.append(body.final_bus_label or "final bus")
+        connection = {
+            "ok": None,
+            "slack_minutes": None,
+            "summary": "Could not refresh the full chain (" + ", ".join(missing) + "). Try again shortly.",
+        }
+
+    return {"report_time": fmt(now), "legs": out_legs, "connection": connection}
+
+
+@app.post("/api/track/refresh")
+async def post_track_refresh(body: TrackRefreshBody):
+    try:
+        return await refresh_tracked_plan(body)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            return {"error": "rate_limit"}
+        return {"error": f"API error: {e.response.status_code}"}
+    except httpx.HTTPError as e:
+        return {"error": f"Network error: {str(e)}"}
+
 
 @app.get("/api/modes")
 async def get_modes():
