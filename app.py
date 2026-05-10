@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+import asyncio
 import httpx
 import os
 from datetime import datetime, timedelta
@@ -17,11 +18,14 @@ import uvicorn
 API_KEY  = os.environ.get("OBA_API_KEY", "TEST")
 OBA_BASE = "https://api.pugetsound.onebusaway.org/api/where"
 
-# Stop IDs — verified via OBA stops-for-location API
+# Stop IDs — verified via OBA (stops-for-route / arrivals samples)
 STOPS = {
-    "u_district_station":       "40_990002",  # U-District Station, northbound 1 Line
-    "shoreline_south_bay2":     "1_81301",    # Shoreline South/148th Station Bay 2
-    "shoreline_north_bay3":     "1_81243",    # Shoreline North/185th Station Bay 3
+    "u_district_station":       "40_990002",   # U District, northbound Link platform (direction N)
+    # Sound Transit Link northbound platform — alight here before walking to bus bays (not King County Metro bays).
+    "shoreline_south_link_nb":  "40_N15-T1",   # Shoreline South/148th, Lynnwood-bound track
+    "shoreline_north_link_nb":  "40_N17-T1",   # Shoreline North/185th, northbound platform
+    "shoreline_south_bay2":     "1_81301",     # Shoreline South/148th Station Bay 2 (Bus 333)
+    "shoreline_north_bay3":     "1_81243",     # Shoreline North/185th Station Bay 3 (Bus 348)
 }
 
 # Route IDs — verified via OBA API
@@ -141,6 +145,7 @@ DESTINATION_OPTIONS = {
         "stop_id": STOPS["shoreline_south_bay2"],
         "headsign": "Mountlake Terrace Station",
         "train_minutes": LIGHT_RAIL_TO_SHORELINE_SOUTH,
+        "link_exit_stop_id": STOPS["shoreline_south_link_nb"],
         "station_label": "Shoreline South/148th",
         "transfer_walk": WALK_1LINE_TO_333_BAY,
         "target_idle": TARGET_IDLE_AT_SHORELINE_SOUTH,
@@ -153,6 +158,7 @@ DESTINATION_OPTIONS = {
         "stop_id": STOPS["shoreline_north_bay3"],
         "headsign": "Richmond Beach North City",
         "train_minutes": LIGHT_RAIL_TO_SHORELINE_NORTH,
+        "link_exit_stop_id": STOPS["shoreline_north_link_nb"],
         "station_label": "Shoreline North/185th",
         "transfer_walk": WALK_1LINE_TO_348_BAY,
         "target_idle": TARGET_IDLE_AT_SHORELINE_NORTH,
@@ -165,6 +171,7 @@ DESTINATION_OPTIONS = {
         "stop_id": None,
         "headsign": None,
         "train_minutes": LIGHT_RAIL_TO_SHORELINE_NORTH,
+        "link_exit_stop_id": STOPS["shoreline_north_link_nb"],
         "station_label": "Shoreline North/185th",
         "transfer_walk": 0,
         "target_idle": 0,
@@ -259,6 +266,45 @@ def depart_time(a: dict) -> datetime:
     scheduled = a.get("scheduledDepartureTime", 0)
     ts = predicted if predicted > 0 else scheduled
     return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
+
+
+def platform_arrival_time(a: dict) -> datetime:
+    """Predicted or scheduled arrival at a platform (for alighting)."""
+    predicted = a.get("predictedArrivalTime", 0)
+    scheduled = a.get("scheduledArrivalTime", 0)
+    ts = predicted if predicted > 0 else scheduled
+    return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
+
+
+def index_link_arrivals_by_trip(arrivals: list, route_ids: set) -> dict:
+    """Map (tripId, serviceDate) → row from Link arrivals at the Shoreline exit platform."""
+    out = {}
+    for a in arrivals:
+        if a.get("routeId") not in route_ids:
+            continue
+        tid = a.get("tripId")
+        sd = a.get("serviceDate")
+        if tid is None or sd is None:
+            continue
+        out[(tid, sd)] = a
+    return out
+
+
+def shoreline_arrival_for_train(
+    train_udist: dict,
+    exit_by_trip: dict,
+    fallback_minutes: int,
+    train_departs: datetime,
+) -> datetime:
+    """Use OBA prediction at the Link exit platform when trip IDs match; else schedule offset."""
+    tid = train_udist.get("tripId")
+    sd = train_udist.get("serviceDate")
+    if tid is None or sd is None:
+        return train_departs + timedelta(minutes=fallback_minutes)
+    exit_row = exit_by_trip.get((tid, sd))
+    if not exit_row:
+        return train_departs + timedelta(minutes=fallback_minutes)
+    return platform_arrival_time(exit_row)
 
 
 def fmt(dt: datetime) -> str:
@@ -465,26 +511,30 @@ async def find_connections(
                 .replace("Bus 333", final_cfg["label"])
             )
 
-    # Minimum time to physically catch the selected destination from the train
-    min_buffer = final_cfg["transfer_walk"] + final_cfg["train_minutes"]
-
     results_in_window  = []  # connections within stay window
     results_outside    = []  # fallback: best connections outside window
 
     def matches_window(dt: datetime) -> bool:
         return dt <= window_boundary if window_mode == "within" else dt >= window_boundary
 
-    try:
-        raw_arrivals = await get_arrivals(STOPS["u_district_station"], fetch_horizon)
-        trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
-        trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
-        all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
+    link_route_ids = {ROUTES["1_line"], ROUTES["2_line"]} if include_line2 else {ROUTES["1_line"]}
 
+    try:
         if final_cfg["is_train_only"]:
+            raw_arrivals, link_exit_arrivals = await asyncio.gather(
+                get_arrivals(STOPS["u_district_station"], fetch_horizon),
+                get_arrivals(final_cfg["link_exit_stop_id"], fetch_horizon),
+            )
             final_bus_arrivals = [{"train_only": True}]
+            using_fallback_final_bus = False
         else:
+            raw_arrivals, link_exit_arrivals, final_bus_raw = await asyncio.gather(
+                get_arrivals(STOPS["u_district_station"], fetch_horizon),
+                get_arrivals(final_cfg["link_exit_stop_id"], fetch_horizon),
+                get_arrivals(final_cfg["stop_id"], fetch_horizon),
+            )
             final_bus_arrivals = by_route_label(
-                await get_arrivals(final_cfg["stop_id"], fetch_horizon),
+                final_bus_raw,
                 final_cfg["route_id"],
                 final_cfg["label"].replace("Bus ", ""),
             )
@@ -498,16 +548,23 @@ async def find_connections(
             if not final_bus_arrivals:
                 return {"error": f"No {final_cfg['label']} departures found in the next {fetch_horizon} min."}
 
+        exit_by_trip = index_link_arrivals_by_trip(link_exit_arrivals, link_route_ids)
+        trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
+        trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
+        all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
+
         for last_bus in final_bus_arrivals:
             final_bus_warning = None
             if final_cfg["is_train_only"]:
                 last_bus_departs = None
-                hard_latest_board = None
             else:
                 last_bus_departs = depart_time(last_bus)
-                # Hard limit: train must board early enough to physically reach the final destination
-                hard_latest_board = last_bus_departs - timedelta(minutes=min_buffer)
                 final_bus_warning = headsign_warning(final_cfg["label"], final_cfg["headsign"], last_bus.get("tripHeadsign", "")) if using_fallback_final_bus else None
+
+            def rail_connects_to_final_bus(arrive_shoreline: datetime) -> bool:
+                if last_bus_departs is None:
+                    return True
+                return arrive_shoreline + timedelta(minutes=final_cfg["transfer_walk"]) <= last_bus_departs
 
             if start == "u_district_station":
                 train = None
@@ -516,9 +573,11 @@ async def find_connections(
                     t_departs = depart_time(t)
                     if t_departs < now + timedelta(minutes=WALK_UDIST_TO_PLATFORM + start_buffer):
                         continue
-                    if hard_latest_board and t_departs > hard_latest_board:
+                    t_arrive_shoreline = shoreline_arrival_for_train(
+                        t, exit_by_trip, final_cfg["train_minutes"], t_departs,
+                    )
+                    if not rail_connects_to_final_bus(t_arrive_shoreline):
                         continue
-                    t_arrive_shoreline = t_departs + timedelta(minutes=final_cfg["train_minutes"])
                     idle_secs = (last_bus_departs - t_arrive_shoreline).total_seconds() if last_bus_departs else 0
                     score = (idle_secs, t_departs.timestamp(), t_arrive_shoreline.timestamp())
                     if best_score is None or score < best_score:
@@ -529,7 +588,9 @@ async def find_connections(
 
                 train_departs = depart_time(train)
                 leave_station = train_departs - timedelta(minutes=WALK_UDIST_TO_PLATFORM + start_buffer)
-                arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
+                arrive_shoreline = shoreline_arrival_for_train(
+                    train, exit_by_trip, final_cfg["train_minutes"], train_departs,
+                )
                 total_mins_station = int(((last_bus_departs or arrive_shoreline) - leave_station).total_seconds() / 60)
                 actual_idle_station = int(((last_bus_departs or arrive_shoreline) - arrive_shoreline).total_seconds() / 60)
                 transfer_cushion_station = actual_idle_station - final_cfg["transfer_walk"]
@@ -580,9 +641,11 @@ async def find_connections(
                 best_score = None
                 for t in all_trains:
                     t_departs = depart_time(t)
-                    if hard_latest_board and t_departs > hard_latest_board:
+                    t_arrive_shoreline = shoreline_arrival_for_train(
+                        t, exit_by_trip, final_cfg["train_minutes"], t_departs,
+                    )
+                    if not rail_connects_to_final_bus(t_arrive_shoreline):
                         continue
-                    t_arrive_shoreline = t_departs + timedelta(minutes=final_cfg["train_minutes"])
                     idle_secs = (last_bus_departs - t_arrive_shoreline).total_seconds() if last_bus_departs else 0
                     # Score: minimize wait at final station, tiebreak: earlier departure.
                     score = (idle_secs, t_departs.timestamp(), t_arrive_shoreline.timestamp())
@@ -593,7 +656,9 @@ async def find_connections(
                     continue
 
                 train_departs = depart_time(train)
-                arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
+                arrive_shoreline = shoreline_arrival_for_train(
+                    train, exit_by_trip, final_cfg["train_minutes"], train_departs,
+                )
                 leave = train_departs - timedelta(minutes=WALK_MODE1_TO_1LINE + start_buffer)
                 if leave < now - timedelta(minutes=1):
                     continue
@@ -647,9 +712,11 @@ async def find_connections(
                 best_score = None
                 for t in all_trains:
                     train_departs = depart_time(t)
-                    if hard_latest_board and train_departs > hard_latest_board:
+                    arrive_shoreline = shoreline_arrival_for_train(
+                        t, exit_by_trip, final_cfg["train_minutes"], train_departs,
+                    )
+                    if not rail_connects_to_final_bus(arrive_shoreline):
                         continue
-                    arrive_shoreline = train_departs + timedelta(minutes=final_cfg["train_minutes"])
                     shoreline_wait_secs = (last_bus_departs - arrive_shoreline).total_seconds() if last_bus_departs else 0
 
                     for bk in cfg["bus_options"]:
@@ -686,6 +753,9 @@ async def find_connections(
 
                 train, pick, arrive_shoreline = best_combo
                 train_departs = depart_time(train)
+                arrive_shoreline = shoreline_arrival_for_train(
+                    train, exit_by_trip, final_cfg["train_minutes"], train_departs,
+                )
 
                 leave = pick["leave_odegaard"]
                 total_mins_m2 = int((((last_bus_departs or arrive_shoreline)) - leave).total_seconds() / 60)
