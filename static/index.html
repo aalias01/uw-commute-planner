@@ -1644,7 +1644,30 @@
   const MAX_SNAPSHOTS = 6;
   const ACTIVE_PLANS_STORAGE_KEY = 'uw-commute-planner-active-plans';
   const MAX_ACTIVE_PLANS = 5;
+  const ACTIVE_RATE_LIMIT_RETRY_MS = 3000;
   let activeRefreshBusy = false;
+  /** @type {Record<string, number>} */
+  let activePlanRetryTimers = {};
+  let activeBulkRetryTimer = null;
+
+  function clearActivePlanRetryTimer(planId) {
+    const t = activePlanRetryTimers[planId];
+    if (t != null) {
+      clearTimeout(t);
+      delete activePlanRetryTimers[planId];
+    }
+  }
+
+  function clearAllActivePlanRetryTimers() {
+    Object.keys(activePlanRetryTimers).forEach(clearActivePlanRetryTimer);
+  }
+
+  function clearActiveBulkRetryTimer() {
+    if (activeBulkRetryTimer != null) {
+      clearTimeout(activeBulkRetryTimer);
+      activeBulkRetryTimer = null;
+    }
+  }
   let currentConnections = [];
   let currentOutOfWindowNote = null;
   let currentReportTimeLabel = '—';
@@ -2032,6 +2055,7 @@
   }
 
   function removeActivePlan(id) {
+    clearActivePlanRetryTimer(id);
     saveActivePlans(readActivePlans().filter((p) => p.id !== id));
     renderActivePlans();
   }
@@ -2054,10 +2078,31 @@
     const plans = readActivePlans();
     const idx = plans.findIndex((p) => p.id === id);
     if (idx < 0) return;
+    clearActivePlanRetryTimer(id);
+    clearActiveBulkRetryTimer();
     const btn = document.getElementById(`active-refresh-${id}`);
-    if (btn) btn.disabled = true;
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = 'Refreshing…';
+    }
     try {
       const data = await refreshTrackedPlanApi(plans[idx].tracking);
+      if (data.error === 'rate_limit') {
+        const prev = plans[idx].lastRefresh;
+        const keep =
+          prev && !prev.error && prev.legs && Array.isArray(prev.legs)
+            ? prev
+            : null;
+        plans[idx].lastRefresh = keep
+          ? { ...keep, error: 'rate_limit' }
+          : { error: 'rate_limit', report_time: null };
+        saveActivePlans(plans);
+        activePlanRetryTimers[id] = window.setTimeout(() => {
+          delete activePlanRetryTimers[id];
+          refreshActivePlan(id);
+        }, ACTIVE_RATE_LIMIT_RETRY_MS);
+        return;
+      }
       if (data.error) {
         plans[idx].lastRefresh = { error: data.error, report_time: null };
       } else {
@@ -2065,7 +2110,10 @@
       }
       saveActivePlans(plans);
     } finally {
-      if (btn) btn.disabled = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = '↻ Refresh';
+      }
       renderActivePlans();
     }
   }
@@ -2073,19 +2121,39 @@
   async function refreshAllActivePlans() {
     const plans = readActivePlans();
     if (!plans.length || activeRefreshBusy) return;
+    clearAllActivePlanRetryTimers();
+    clearActiveBulkRetryTimer();
     activeRefreshBusy = true;
     const allBtn = document.getElementById('active-refresh-all-btn');
-    if (allBtn) allBtn.disabled = true;
+    if (allBtn) {
+      allBtn.disabled = true;
+      allBtn.textContent = 'Refreshing…';
+    }
     try {
       const next = [...plans];
       for (let i = 0; i < next.length; i++) {
         const data = await refreshTrackedPlanApi(next[i].tracking);
-        next[i].lastRefresh = data.error ? { error: data.error } : data;
+        if (data.error === 'rate_limit') {
+          saveActivePlans(next);
+          activeBulkRetryTimer = window.setTimeout(() => {
+            activeBulkRetryTimer = null;
+            refreshAllActivePlans();
+          }, ACTIVE_RATE_LIMIT_RETRY_MS);
+          return;
+        }
+        if (data.error) {
+          next[i].lastRefresh = { error: data.error };
+        } else {
+          next[i].lastRefresh = data;
+        }
       }
       saveActivePlans(next);
     } finally {
       activeRefreshBusy = false;
-      if (allBtn) allBtn.disabled = false;
+      if (allBtn) {
+        allBtn.disabled = false;
+        allBtn.textContent = '↻ Refresh all';
+      }
       renderActivePlans();
     }
   }
@@ -2106,16 +2174,21 @@
     out.innerHTML = plans.map((p) => {
       const lr = p.lastRefresh;
       let banner = '';
-      if (lr && lr.error) {
-        banner = `<div class="connection-banner unknown">${escapeHtml(lr.error === 'rate_limit' ? 'Rate limited — wait a moment and try again.' : lr.error)}</div>`;
-      } else if (lr && lr.connection) {
+      if (lr && lr.error === 'rate_limit') {
+        banner +=
+          '<div class="warn" style="margin:0 14px 12px;padding:12px 14px;border-radius:12px;font-size:12px;line-height:1.45">⏱ Rate limited. Retrying every 3 seconds until live data returns.</div>';
+      } else if (lr && lr.error) {
+        banner = `<div class="connection-banner unknown">${escapeHtml(lr.error)}</div>`;
+      }
+      if (lr && lr.connection && (!lr.error || lr.error === 'rate_limit')) {
         const conn = lr.connection;
         const cls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
-        banner = `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
+        banner += `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
       }
 
       let legsHtml = '';
-      if (lr && lr.legs && !lr.error) {
+      const legsOk = lr && lr.legs && Array.isArray(lr.legs) && (!lr.error || lr.error === 'rate_limit');
+      if (legsOk) {
         const legsSorted = lr.legs
           .map((leg, idx) => ({ leg, idx }))
           .sort((a, b) => {
