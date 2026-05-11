@@ -1954,9 +1954,6 @@
     });
     saveActivePlans(plans);
     renderActivePlans();
-    const navBtns = document.querySelectorAll('.nav-btn');
-    const activeBtn = Array.from(navBtns).find((b) => b.textContent.trim() === 'Active');
-    if (activeBtn) showPage('active', activeBtn);
   }
 
   function removeActivePlan(id) {
