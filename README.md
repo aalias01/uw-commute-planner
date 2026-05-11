@@ -74,7 +74,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 - Saved defaults persisted to localStorage
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
-- **Active trips**: follow up to 5 plans in localStorage; per-plan or bulk refresh against live boards
+- **Active trips**: follow up to 8 plans in localStorage; reorder with ↑ ↓ on each card; per-plan or bulk refresh against live boards
 - Timetable page with separate departure boards for feeder buses, Link, final buses, and class-bound buses
 - Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
 

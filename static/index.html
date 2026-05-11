@@ -977,7 +977,13 @@
     }
     .active-plan-title { font-size: 14px; font-weight: 700; color: var(--c-ink); line-height: 1.35; }
     .active-plan-meta { font-size: 11px; color: var(--c-muted2); margin-top: 4px; }
-    .active-plan-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .active-plan-actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+    .active-move-btn {
+      min-width: 2.25rem;
+      padding: 6px 8px;
+      font-size: 14px;
+      line-height: 1;
+    }
     .connection-banner {
       margin: 0 14px 12px;
       padding: 10px 12px;
@@ -1426,7 +1432,7 @@
   <!-- ══ ACTIVE TRIPS PAGE ══ -->
   <div class="page" id="page-active">
     <div class="active-intro">
-      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here. Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer.
+      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list.
     </div>
     <div class="active-toolbar">
       <span class="desc" id="active-summary-count">0 trips followed</span>
@@ -1553,7 +1559,7 @@
   const SNAPSHOT_TTL_MS = 24 * 60 * 60 * 1000;
   const MAX_SNAPSHOTS = 6;
   const ACTIVE_PLANS_STORAGE_KEY = 'uw-commute-planner-active-plans';
-  const MAX_ACTIVE_PLANS = 5;
+  const MAX_ACTIVE_PLANS = 8;
   const ACTIVE_RATE_LIMIT_RETRY_MS = 3000;
   let activeRefreshBusy = false;
   /** @type {Record<string, number>} */
@@ -1959,6 +1965,20 @@
     renderActivePlans();
   }
 
+  function moveActivePlan(id, direction) {
+    const plans = readActivePlans();
+    const idx = plans.findIndex((p) => p.id === id);
+    if (idx < 0) return;
+    const j = idx + direction;
+    if (j < 0 || j >= plans.length) return;
+    const next = plans.slice();
+    const tmp = next[idx];
+    next[idx] = next[j];
+    next[j] = tmp;
+    saveActivePlans(next);
+    renderActivePlans();
+  }
+
   async function refreshTrackedPlanApi(tracking) {
     const res = await fetch('/api/track/refresh', {
       method: 'POST',
@@ -2070,7 +2090,7 @@
       return;
     }
 
-    out.innerHTML = plans.map((p) => {
+    out.innerHTML = plans.map((p, i) => {
       const lr = p.lastRefresh;
       let banner = '';
       if (lr && lr.error === 'rate_limit') {
@@ -2122,6 +2142,8 @@
               <div class="active-plan-meta">${escapeHtml(rt)} · Added ${new Date(p.addedAt).toLocaleString()}</div>
             </div>
             <div class="active-plan-actions">
+              <button type="button" class="card-btn active-move-btn" aria-label="Move up" title="Move up" ${i === 0 ? 'disabled' : ''} onclick="moveActivePlan('${escapeHtml(p.id)}', -1)">↑</button>
+              <button type="button" class="card-btn active-move-btn" aria-label="Move down" title="Move down" ${i === plans.length - 1 ? 'disabled' : ''} onclick="moveActivePlan('${escapeHtml(p.id)}', 1)">↓</button>
               <button type="button" class="card-btn card-btn-accent" id="active-refresh-${escapeHtml(p.id)}" onclick="refreshActivePlan('${escapeHtml(p.id)}')">↻ Refresh</button>
               <button type="button" class="card-btn" onclick="removeActivePlan('${escapeHtml(p.id)}')">Remove</button>
             </div>
