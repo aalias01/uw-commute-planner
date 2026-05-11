@@ -1432,7 +1432,7 @@
   <!-- ══ ACTIVE TRIPS PAGE ══ -->
   <div class="page" id="page-active">
     <div class="active-intro">
-      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list.
+      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards from a past <strong>service day</strong> (Seattle date) are removed automatically when this list loads.
     </div>
     <div class="active-toolbar">
       <span class="desc" id="active-summary-count">0 trips followed</span>
@@ -1914,12 +1914,57 @@
       .replace(/"/g, '&quot;');
   }
 
+  /** YYYYMMDD as integer, America/Los_Angeles (matches OBA serviceDate calendar). */
+  function getSeattleDateIntYYYYMMDD() {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date());
+    const by = {};
+    parts.forEach((p) => {
+      if (p.type !== 'literal') by[p.type] = p.value;
+    });
+    return parseInt(`${by.year}${by.month}${by.day}`, 10);
+  }
+
+  /** Latest service_date across tracking legs; null if none. */
+  function activePlanMaxServiceDate(plan) {
+    const legs = plan && plan.tracking && Array.isArray(plan.tracking.legs) ? plan.tracking.legs : [];
+    let max = null;
+    for (const leg of legs) {
+      const sd = leg.service_date;
+      if (sd == null || sd === '') continue;
+      const n = typeof sd === 'string' ? parseInt(sd, 10) : Number(sd);
+      if (!Number.isFinite(n)) continue;
+      if (max === null || n > max) max = n;
+    }
+    return max;
+  }
+
+  function isActivePlanPastServiceDay(plan, todayYyyymmdd) {
+    const maxSd = activePlanMaxServiceDate(plan);
+    if (maxSd == null) return false;
+    return maxSd < todayYyyymmdd;
+  }
+
   function readActivePlans() {
     try {
       const raw = localStorage.getItem(ACTIVE_PLANS_STORAGE_KEY);
       if (!raw) return [];
       const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed : [];
+      let plans = Array.isArray(parsed) ? parsed : [];
+      const today = getSeattleDateIntYYYYMMDD();
+      const pruned = plans.filter((p) => !isActivePlanPastServiceDay(p, today));
+      if (pruned.length !== plans.length) {
+        plans.forEach((p) => {
+          if (!pruned.some((q) => q.id === p.id)) clearActivePlanRetryTimer(p.id);
+        });
+        saveActivePlans(pruned);
+        plans = pruned;
+      }
+      return plans;
     } catch {
       return [];
     }
