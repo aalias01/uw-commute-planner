@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Reference timing — UW Commute Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --c-primary: #0a5c3a;
+      --c-bg: #eef1ee;
+      --c-surface: #ffffff;
+      --c-border: #e0e5e0;
+      --c-ink: #0e1a12;
+      --c-ink2: #384d3e;
+      --c-muted: #6b8272;
+      --c-shadow: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.04);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--c-bg);
+      color: var(--c-ink);
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 20px 16px 40px;
+      line-height: 1.5;
+    }
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+    h1 { font-size: 18px; font-weight: 800; letter-spacing: -0.02em; }
+    .back {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--c-primary);
+      text-decoration: none;
+    }
+    .back:hover { text-decoration: underline; }
+    .lede {
+      font-size: 13px;
+      color: var(--c-ink2);
+      margin-bottom: 16px;
+      line-height: 1.55;
+    }
+    .timings-controls {
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: 16px;
+      box-shadow: var(--c-shadow);
+      padding: 13px 15px;
+      margin-bottom: 14px;
+    }
+    .ctrl-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--c-muted); margin-bottom: 8px; }
+    .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+    .idle-chip {
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      cursor: pointer;
+      font-family: inherit;
+      color: var(--c-ink2);
+    }
+    .idle-chip.active { border-color: var(--c-primary); color: var(--c-primary); background: #e6f4ed; }
+    .idle-chip:hover:not(.active) { border-color: #909090; color: var(--c-ink); }
+    .pref-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--c-bg); }
+    .pref-row label { font-size: 13px; font-weight: 600; color: var(--c-ink2); }
+    .switch { position: relative; width: 44px; height: 26px; flex-shrink: 0; }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; inset: 0;
+      background: #ccc; border-radius: 26px; transition: .2s;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 20px; width: 20px; left: 3px; bottom: 3px;
+      background: white; border-radius: 50%; transition: .2s;
+    }
+    .switch input:checked + .slider { background: var(--c-primary); }
+    .switch input:checked + .slider:before { transform: translateX(18px); }
+    .timings-note {
+      font-size: 12px; color: var(--c-muted);
+      line-height: 1.65;
+      background: var(--c-surface);
+      border-radius: 14px;
+      border: 1px solid var(--c-border);
+      padding: 13px 15px;
+      margin-bottom: 16px;
+      box-shadow: var(--c-shadow);
+    }
+    .t-section { margin-bottom: 20px; }
+    .t-title {
+      font-size: 10px; font-weight: 800; letter-spacing: 0.09em;
+      text-transform: uppercase; color: var(--c-muted); margin-bottom: 10px;
+    }
+    .t-route {
+      background: var(--c-surface); border-radius: 16px;
+      border: 1px solid var(--c-border); box-shadow: var(--c-shadow);
+      padding: 14px 16px; margin-bottom: 10px;
+    }
+    .t-route-name { font-size: 14px; font-weight: 700; color: var(--c-ink); margin-bottom: 10px; }
+    .t-route-note { font-size: 12px; color: var(--c-muted); margin-bottom: 12px; line-height: 1.5; }
+    .timeline {
+      display: flex; align-items: stretch; gap: 0;
+      margin-bottom: 10px; border-radius: 8px; overflow: hidden; height: 30px;
+    }
+    .tl-seg {
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; min-width: 0;
+    }
+    .tl-walk  { background: #c6e8a0; color: #2a5000; }
+    .tl-bus   { background: #a8d4f8; color: #0a3870; }
+    .tl-rail  { background: #c4bffc; color: #2e2880; }
+    .tl-walk2 { background: #d8f0b8; color: #345a00; }
+    .tl-end   { background: #a8dcc4; color: #054030; }
+    .t-legs { display: flex; flex-direction: column; gap: 5px; }
+    .t-leg { display: flex; align-items: center; gap: 9px; font-size: 12px; color: var(--c-ink2); }
+    .t-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    .t-leg-label { flex: 1; }
+    .t-leg-val { font-weight: 700; color: var(--c-ink); white-space: nowrap; }
+    .t-total {
+      font-size: 12px; color: var(--c-muted); margin-top: 10px; padding-top: 10px;
+      border-top: 1px solid var(--c-bg);
+    }
+    .t-total strong { color: var(--c-ink); }
+    .load-note { font-size: 12px; color: var(--c-muted); margin-bottom: 12px; min-height: 1.2em; }
+    .error { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 14px; padding: 14px; color: #b91c1c; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <h1>Reference timing</h1>
+    <a class="back" href="/">← Back to planner</a>
+  </div>
+  <p class="lede">
+    Static leg minutes from the planner model in <code>app.py</code> — no live data, no start buffer, no live transfer wait.
+  </p>
+
+  <div class="timings-controls">
+    <div class="ctrl-label">Destination</div>
+    <div class="chip-row">
+      <button type="button" class="idle-chip active" id="td-333" data-dest="333">Bus 333</button>
+      <button type="button" class="idle-chip" id="td-348" data-dest="348">Bus 348</button>
+      <button type="button" class="idle-chip" id="td-train" data-dest="train_north">Train only</button>
+    </div>
+    <div class="pref-row">
+      <label for="line2-ref">Include Line 2 in rail label</label>
+      <label class="switch" aria-label="Include Line 2">
+        <input type="checkbox" id="line2-ref" checked />
+        <span class="slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <p class="load-note" id="load-note"></p>
+
+  <div class="timings-note">
+    Base route timing assumptions — physical legs only. These do not include your custom start buffer or live transfer wait shown on Planner cards.
+  </div>
+
+  <div class="t-section">
+    <div class="t-title">Mode 1 — Walk</div>
+    <div class="t-route">
+      <div class="t-route-name" id="timings-mode1-name">Loading…</div>
+      <div class="t-route-note">Reference timing. Live results may differ based on actual connections.</div>
+      <div class="timeline" id="tl-mode1"></div>
+      <div class="t-legs" id="lg-mode1"></div>
+      <div class="t-total" id="tot-mode1"></div>
+    </div>
+  </div>
+
+  <div class="t-section">
+    <div class="t-title">Mode 2 — Bus</div>
+    <div class="t-route">
+      <div class="t-route-name">🚌 Bus 44 / 372</div>
+      <div class="t-route-note">Shown in planner only when a live trip lines up with your connection.</div>
+      <div class="timeline" id="tl-44"></div>
+      <div class="t-legs" id="lg-44"></div>
+      <div class="t-total" id="tot-44"></div>
+    </div>
+    <div class="t-route">
+      <div class="t-route-name">🚌 Bus 45</div>
+      <div class="t-route-note">Shown in planner only when a live trip lines up with your connection.</div>
+      <div class="timeline" id="tl-45"></div>
+      <div class="t-legs" id="lg-45"></div>
+      <div class="t-total" id="tot-45"></div>
+    </div>
+  </div>
+
+  <div class="timings-note" style="margin-bottom:0">
+    Walk times show the base physical route only.<br>
+    Add any starting buffer in Planner, and live transfer buffer is shown on Planner cards.
+  </div>
+
+  <script>
+    const TYPE_STYLE = {
+      walk:  { cls: 'tl-walk',  dot: '#c6e8a0' },
+      bus:   { cls: 'tl-bus',   dot: '#a8d4f8' },
+      rail:  { cls: 'tl-rail',  dot: '#c4bffc' },
+      walk2: { cls: 'tl-walk2', dot: '#d8f0b8' },
+      end:   { cls: 'tl-end',   dot: '#a8dcc4' },
+    };
+    function buildTimeline(tlId, lgId, totId, legs) {
+      const total = legs.reduce((s, l) => s + l.min, 0);
+      document.getElementById(tlId).innerHTML = legs.map(l => {
+        const st = TYPE_STYLE[l.type];
+        const pct = (l.min / total * 100).toFixed(1);
+        return `<div class="tl-seg ${st.cls}" style="width:${pct}%">${l.min >= 3 ? l.min + 'm' : ''}</div>`;
+      }).join('');
+      document.getElementById(lgId).innerHTML = legs.map(l => {
+        const st = TYPE_STYLE[l.type];
+        return `<div class="t-leg"><div class="t-dot" style="background:${st.dot}"></div><div class="t-leg-label">${l.label}</div><div class="t-leg-val">${l.min} min</div></div>`;
+      }).join('');
+      document.getElementById(totId).innerHTML =
+        `Base time: <strong>${total} min</strong> (route timing only; custom start buffer and live transfer waits not included)`;
+    }
+
+    const q = new URLSearchParams(location.search);
+    const dParam = q.get('destination');
+    let timingsDestination = ['333', '348', 'train_north'].includes(dParam) ? dParam : '333';
+    let includeLine2 = q.get('include_line2') !== 'false';
+
+    function updateDestButtons() {
+      document.getElementById('td-333').classList.toggle('active', timingsDestination === '333');
+      document.getElementById('td-348').classList.toggle('active', timingsDestination === '348');
+      document.getElementById('td-train').classList.toggle('active', timingsDestination === 'train_north');
+    }
+
+    function syncUrl() {
+      const p = new URLSearchParams();
+      p.set('destination', timingsDestination);
+      p.set('include_line2', includeLine2 ? 'true' : 'false');
+      history.replaceState(null, '', `${location.pathname}?${p.toString()}`);
+    }
+
+    async function loadTimings() {
+      const note = document.getElementById('load-note');
+      note.textContent = 'Loading…';
+      try {
+        const d = await fetch(`/api/timings?destination=${timingsDestination}&include_line2=${includeLine2}`).then(r => r.json());
+        document.getElementById('timings-mode1-name').textContent =
+          `Odegaard Library → U-District Station → ${d.line_label} → ${d.is_train_only ? d.final_station_label : d.final_label}`;
+        buildTimeline('tl-mode1', 'lg-mode1', 'tot-mode1', d.mode1);
+        buildTimeline('tl-44', 'lg-44', 'tot-44', d.bus_44_372);
+        buildTimeline('tl-45', 'lg-45', 'tot-45', d.bus_45);
+        note.textContent = '';
+        syncUrl();
+      } catch (e) {
+        note.textContent = 'Could not load timing data from the server.';
+      }
+    }
+
+    document.getElementById('line2-ref').checked = includeLine2;
+    document.getElementById('line2-ref').addEventListener('change', () => {
+      includeLine2 = document.getElementById('line2-ref').checked;
+      loadTimings();
+    });
+
+    ['td-333', 'td-348', 'td-train'].forEach(id => {
+      document.getElementById(id).addEventListener('click', () => {
+        timingsDestination = document.getElementById(id).getAttribute('data-dest');
+        updateDestButtons();
+        loadTimings();
+      });
+    });
+
+    updateDestButtons();
+    loadTimings();
+  </script>
+</body>
+</html>

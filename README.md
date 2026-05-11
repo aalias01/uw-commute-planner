@@ -52,9 +52,8 @@ The result is not just a route — it's a recommendation for **what to do right 
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
 - **Active** — follow a specific recommendation (“Follow trip”); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable
-- **Timings** — static route leg breakdown driven by timing constants in `app.py`, with no live data
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
-- **About** — short product notes
+- **About** — product notes; link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
 
 ---
 
@@ -76,7 +75,6 @@ The result is not just a route — it's a recommendation for **what to do right 
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
 - **Active trips**: follow up to 5 plans in localStorage; per-plan or bulk refresh against live boards
-- Timings page with destination-specific display toggle
 - Timetable page with separate departure boards for feeder buses, Link, final buses, and class-bound buses
 - Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
 
@@ -135,7 +133,7 @@ Open [http://localhost:8000](http://localhost:8000).
 |----------|-------------|
 | `GET /` | Serves the frontend |
 | `GET /api/connections` | Returns live planner suggestions |
-| `GET /api/timings` | Returns timing data for the Timings page |
+| `GET /api/timings` | Returns static leg-by-leg timing constants (used by `/static/timings.html`) |
 | `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
 | `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection summary: clock minutes from Link platform arrival to bus departure (`minutes_after_link_arrival`), minus walk yields wait at the bay (`cushion_at_bay_minutes`; `slack_minutes` matches that cushion). Used by the Active tab |
@@ -167,6 +165,7 @@ commute-planner/
 ├── README.md
 ├── static/
 │   ├── index.html
+│   ├── timings.html
 │   └── html2canvas.min.js
 └── docs_local/
     ├── CONTEXT.md
