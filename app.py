@@ -223,9 +223,15 @@ def planner_fetch_horizon(offset_minutes: int, window_mode: str) -> int:
     - find later trains/final buses for `after`
     - show nearby fallback options for `within`
     - account for train travel and transfer timing
+
+    For `after`, use a higher cap (24h) and extra slack: the leave-time cutoff is at campus, but
+    Link and final-bus departures we still evaluate happen later in the chain. A tight cap (e.g.
+    360m) clips evening options when the user picks a clock time many hours ahead.
     """
     buffer_minutes = 90 if window_mode == "within" else 120
-    return max(240, min(360, offset_minutes + buffer_minutes))
+    cap = 1440 if window_mode == "after" else 360
+    extra_after = 90 if window_mode == "after" else 0
+    return max(240, min(cap, offset_minutes + buffer_minutes + extra_after))
 
 
 def parse_leave_after_hhmm(now: datetime, raw: str) -> tuple[Optional[datetime], Optional[str]]:
