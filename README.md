@@ -52,8 +52,8 @@ The result is not just a route — it's a recommendation for **what to do right 
 ## App Tabs
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
-- **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ ±X min buffer (~Y min walk)` pill; legs displayed in trip-sequence order (depart → arrive → bus).
-- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (down to −5 min buffer) — and follow any of them directly to Active. Auto-refreshes every 30 seconds while the tab is open; preserves your selected train across silent background refreshes.
+- **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ +X.X min to bus (~Y min walk)` pill (raw gap from train platform arrival to bus departure, color-coded green/red against the walk threshold); legs displayed in trip-sequence order (depart → arrive → bus).
+- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. Auto-refreshes every 30 seconds while the tab is open; preserves your selected train across silent background refreshes.
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
 - **About** — product notes (accessible via a pill button in the header bar, not a nav tab); link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
 
@@ -94,8 +94,8 @@ The planner is built around this commute shape:
 
 Route-specific details:
 
-- Bus 333 is filtered to the Mountlake Terrace Station direction from Shoreline South Bay 2.
-- Bus 348 is filtered to the Richmond Beach North City direction from Shoreline North Bay 3.
+- Bus 333 is filtered to the Mountlake Terrace Station direction from Shoreline South Bay 2. Platform-to-bay walk: **2 min**.
+- Bus 348 is filtered to the Richmond Beach North City direction from Shoreline North Bay 3. Platform-to-bay walk: **3 min**.
 - Feeder buses use the rider-facing directional stop at 15th Ave NE & NE Campus Pkwy, with headsign mismatches surfaced as warnings instead of silently hidden.
 - Bus 45 trips are validated to confirm they serve the intended U-District dropoff stop.
 

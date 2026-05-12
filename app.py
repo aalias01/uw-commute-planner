@@ -84,7 +84,7 @@ LIGHT_RAIL_TO_SHORELINE_SOUTH = 12  # U-District Station → Shoreline South/148
 LIGHT_RAIL_TO_SHORELINE_NORTH = 15  # U-District Station → Shoreline North/185th
 
 # ── Leg 5: station → final bus bay ────────────────────────────────────────────
-WALK_1LINE_TO_333_BAY   = 3    # Shoreline South platform → Bus 333 bay
+WALK_1LINE_TO_333_BAY   = 2    # Shoreline South platform → Bus 333 bay
 WALK_1LINE_TO_348_BAY   = 3    # Shoreline North platform → Bus 348 bay
 RIDE_333_TO_HOME        = 21   # Bus 333 ride after boarding
 WALK_333_TO_HOME        = 4    # Walk from Bus 333 stop to apartment

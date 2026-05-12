@@ -2231,13 +2231,13 @@
       }
       if (lr && lr.connection && (!lr.error || lr.error === 'rate_limit')) {
         const conn = lr.connection;
-        const cushion = conn.cushion_at_bay_minutes ?? conn.slack_minutes;
+        const gap = conn.minutes_after_link_arrival ?? null;
         const walkMins = p.tracking && p.tracking.transfer_walk_mins != null ? p.tracking.transfer_walk_mins : null;
-        if (cushion != null && walkMins != null && conn.ok !== null) {
+        if (gap != null && walkMins != null && conn.ok !== null) {
           const pillCls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
-          const sign = cushion >= 0 ? '+' : '';
-          const cushionStr = `${sign}${Math.round(cushion * 10) / 10}`;
-          banner += `<div class="conn-pill-wrap"><span class="conn-pill ${pillCls}">⏱ ${cushionStr} min buffer (~${walkMins} min walk)</span></div>`;
+          const sign = gap >= 0 ? '+' : '';
+          const gapStr = `${sign}${Math.round(gap * 10) / 10}`;
+          banner += `<div class="conn-pill-wrap"><span class="conn-pill ${pillCls}">⏱ ${gapStr} min to bus (~${walkMins} min walk)</span></div>`;
         } else {
           const cls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
           banner += `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
@@ -3075,9 +3075,9 @@
       } else {
         s += `<div class="catch-conn-arrive">Link arrives ${escapeHtml(linkArrives)}</div>`;
         pairs.forEach(({ conn, connIdx }) => {
-          const cushion = conn.cushion_min;
-          const sign = cushion >= 0 ? '+' : '';
-          const cushionStr = `${sign}${Math.round(cushion * 10) / 10}`;
+          const gap = conn.gap_min;
+          const sign = gap >= 0 ? '+' : '';
+          const gapStr = `${sign}${Math.round(gap * 10) / 10}`;
           const pillCls = conn.ok ? 'ok' : 'bad';
           const busBadge = conn.is_realtime
             ? '<span class="badge badge-live">Live</span>'
@@ -3088,7 +3088,7 @@
               <div class="catch-conn-info">
                 <div class="catch-conn-bus">${escapeHtml(conn.bus_label)} ${busBadge}</div>
                 <div class="catch-conn-time">Departs ${escapeHtml(conn.bus_departs)}${busDelayText}</div>
-                <div class="catch-conn-pill"><span class="conn-pill ${pillCls}">⏱ ${cushionStr} min buffer (~${conn.walk_min} min walk)</span></div>
+                <div class="catch-conn-pill"><span class="conn-pill ${pillCls}">⏱ ${gapStr} min to bus (~${conn.walk_min} min walk)</span></div>
               </div>
               <button class="card-btn card-btn-accent" onclick="followCatchPlan(${idx}, ${connIdx})">Follow</button>
             </div>`;
