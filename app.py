@@ -30,6 +30,18 @@ STOPS = {
     "shoreline_north_bay3":     "1_81243",     # Shoreline North/185th Station Bay 3 (Bus 348)
 }
 
+# Headsigns for Link short-turn trips that terminate before reaching Shoreline.
+# Trains with these headsigns are excluded from the planner (they won't make the connection).
+# The Catch tab intentionally keeps showing them so you can see the full board.
+LINK_SHORT_TURN_HEADSIGNS: set[str] = {"northgate"}
+
+
+def is_link_thru_train(train: dict) -> bool:
+    """Return False for short-turn trains that don't reach Shoreline (e.g. Northgate turnbacks)."""
+    headsign = str(train.get("tripHeadsign", "")).strip().lower()
+    return not any(s in headsign for s in LINK_SHORT_TURN_HEADSIGNS)
+
+
 # Route IDs — verified via OBA API
 ROUTES = {
     "1_line":  "40_100479",  # Sound Transit 1 Line
@@ -203,9 +215,9 @@ class TrackRefreshBody(BaseModel):
     final_bus_label: Optional[str] = None
 
 
-async def get_arrivals(stop_id: str, minutes_after: int = 90) -> list:
+async def get_arrivals(stop_id: str, minutes_after: int = 90, minutes_before: int = 0) -> list:
     url    = f"{OBA_BASE}/arrivals-and-departures-for-stop/{stop_id}.json"
-    params = {"key": API_KEY, "minutesAfter": minutes_after, "minutesBefore": 0}
+    params = {"key": API_KEY, "minutesAfter": minutes_after, "minutesBefore": minutes_before}
     async with httpx.AsyncClient(timeout=10) as client:
         resp = await client.get(url, params=params)
         resp.raise_for_status()
@@ -726,7 +738,10 @@ async def find_connections(
         exit_by_trip = index_link_arrivals_by_trip(link_exit_arrivals, link_route_ids)
         trains_1line = by_route(raw_arrivals, ROUTES["1_line"])
         trains_2line = by_route(raw_arrivals, ROUTES["2_line"]) if include_line2 else []
-        all_trains   = sorted(trains_1line + trains_2line, key=lambda t: depart_time(t))
+        all_trains   = sorted(
+            [t for t in trains_1line + trains_2line if is_link_thru_train(t)],
+            key=lambda t: depart_time(t),
+        )
 
         for last_bus in final_bus_arrivals:
             final_bus_warning = None
@@ -1206,11 +1221,11 @@ async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
             "slack_minutes": round(cushion, 1),
             "summary": (
                 f"{bus_lbl} departs about {gap_min:.1f} min after Link arrives at the platform "
-                f"(~{walk_m} min walk to the bay → about {cushion:.1f} min at the bay before it leaves)."
+                f"(~{walk_m} min walk → {cushion:.1f} min buffer before it leaves)."
                 if ok
                 else (
                     f"Tight or missed: only {gap_min:.1f} min from Link arrival to bus departure "
-                    f"with ~{walk_m} min walk to the bay (about {cushion:.1f} min at the bay — recheck or replan)."
+                    f"with ~{walk_m} min walk ({cushion:.1f} min buffer — recheck or replan)."
                 )
             ),
         }
@@ -1239,6 +1254,142 @@ async def post_track_refresh(body: TrackRefreshBody):
         return {"error": f"API error: {e.response.status_code}"}
     except httpx.HTTPError as e:
         return {"error": f"Network error: {str(e)}"}
+
+
+@app.get("/api/catch_my_train")
+async def get_catch_my_train(window_before: int = 5, window_after: int = 15):
+    """
+    Returns northbound Link trains departing U District in [now−window_before, now+window_after]
+    with Bus 333 and Bus 348 connection options (including tight/near-miss ones).
+    """
+    now = datetime.now(tz=SEATTLE)
+    link_route_ids = {ROUTES["1_line"], ROUTES["2_line"]}
+    fetch_horizon = max(window_after + 45, 60)
+
+    try:
+        (
+            udist_raw,
+            south_exits_raw,
+            north_exits_raw,
+            buses_333_raw,
+            buses_348_raw,
+        ) = await asyncio.gather(
+            get_arrivals(STOPS["u_district_station"], minutes_after=window_after + 5, minutes_before=window_before),
+            get_arrivals(STOPS["shoreline_south_link_nb"], minutes_after=fetch_horizon),
+            get_arrivals(STOPS["shoreline_north_link_nb"], minutes_after=fetch_horizon),
+            get_arrivals(DESTINATION_OPTIONS["333"]["stop_id"], minutes_after=fetch_horizon),
+            get_arrivals(DESTINATION_OPTIONS["348"]["stop_id"], minutes_after=fetch_horizon),
+        )
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 429:
+            return {"error": "rate_limit"}
+        return {"error": f"API error: {e.response.status_code}"}
+    except httpx.HTTPError as e:
+        return {"error": f"Network error: {str(e)}"}
+
+    link_trains = [a for a in udist_raw if a.get("routeId") in link_route_ids]
+
+    south_exit_by_trip = index_link_arrivals_by_trip(south_exits_raw, link_route_ids)
+    north_exit_by_trip = index_link_arrivals_by_trip(north_exits_raw, link_route_ids)
+
+    buses_333 = sorted(
+        by_route_label(buses_333_raw, ROUTES["bus_333"], "333"),
+        key=lambda b: depart_time(b),
+    )
+    buses_348 = sorted(
+        by_route_label(buses_348_raw, ROUTES["bus_348"], "348"),
+        key=lambda b: depart_time(b),
+    )
+
+    trains_out = []
+    for train in link_trains:
+        train_departs = depart_time(train)
+        minutes_until = int((train_departs - now).total_seconds() / 60)
+        is_realtime = bool(train.get("predicted"))
+        delay_note = live_vs_schedule_depart_note(train)
+
+        arrive_south = shoreline_arrival_for_train(
+            train, south_exit_by_trip, LIGHT_RAIL_TO_SHORELINE_SOUTH, train_departs
+        )
+        arrive_north = shoreline_arrival_for_train(
+            train, north_exit_by_trip, LIGHT_RAIL_TO_SHORELINE_NORTH, train_departs
+        )
+
+        connections: list[dict] = []
+
+        final_cfg_333 = DESTINATION_OPTIONS["333"]
+        walk_333 = final_cfg_333["transfer_walk"]
+        count_333 = 0
+        for bus in buses_333:
+            bus_departs = depart_time(bus)
+            gap = (bus_departs - arrive_south).total_seconds() / 60.0
+            cushion = gap - walk_333
+            if cushion < -5.0:
+                continue
+            if gap > 45:
+                break
+            connections.append({
+                "dest": "333",
+                "bus_label": "Bus 333",
+                "station": final_cfg_333["station_label"],
+                "link_arrives": fmt(arrive_south),
+                "bus_departs": fmt(bus_departs),
+                "gap_min": round(gap, 1),
+                "walk_min": walk_333,
+                "cushion_min": round(cushion, 1),
+                "ok": cushion >= -0.25,
+                "is_realtime": bool(bus.get("predicted")),
+                "bus_delay_note": live_vs_schedule_depart_note(bus),
+                "tracking": build_connection_tracking("333", final_cfg_333, train, bus),
+            })
+            count_333 += 1
+            if count_333 >= 3:
+                break
+
+        final_cfg_348 = DESTINATION_OPTIONS["348"]
+        walk_348 = final_cfg_348["transfer_walk"]
+        count_348 = 0
+        for bus in buses_348:
+            bus_departs = depart_time(bus)
+            gap = (bus_departs - arrive_north).total_seconds() / 60.0
+            cushion = gap - walk_348
+            if cushion < -5.0:
+                continue
+            if gap > 45:
+                break
+            connections.append({
+                "dest": "348",
+                "bus_label": "Bus 348",
+                "station": final_cfg_348["station_label"],
+                "link_arrives": fmt(arrive_north),
+                "bus_departs": fmt(bus_departs),
+                "gap_min": round(gap, 1),
+                "walk_min": walk_348,
+                "cushion_min": round(cushion, 1),
+                "ok": cushion >= -0.25,
+                "is_realtime": bool(bus.get("predicted")),
+                "bus_delay_note": live_vs_schedule_depart_note(bus),
+                "tracking": build_connection_tracking("348", final_cfg_348, train, bus),
+            })
+            count_348 += 1
+            if count_348 >= 3:
+                break
+
+        trains_out.append({
+            "trip_id": train.get("tripId"),
+            "service_date": train.get("serviceDate"),
+            "route_id": train.get("routeId"),
+            "route_label": str(train.get("routeShortName") or "Link"),
+            "headsign": train.get("tripHeadsign", ""),
+            "depart_u_district": fmt(train_departs),
+            "minutes_until": minutes_until,
+            "is_realtime": is_realtime,
+            "delay_note": delay_note,
+            "connections": connections,
+        })
+
+    trains_out.sort(key=lambda t: t["minutes_until"])
+    return {"fetched_at": fmt(now), "trains": trains_out}
 
 
 @app.get("/api/modes")

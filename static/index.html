@@ -93,6 +93,12 @@
       letter-spacing: 0.05em;
       text-transform: uppercase;
     }
+    .brand-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-left: auto;
+    }
     .brand-pill {
       display: flex;
       align-items: center;
@@ -101,8 +107,22 @@
       border: 1px solid rgba(0,200,112,0.35);
       border-radius: 999px;
       padding: 4px 11px;
-      margin-left: auto;
     }
+    .about-btn {
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.55);
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 4px 11px;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.01em;
+      transition: color 0.15s, background 0.15s;
+    }
+    .about-btn:hover { color: white; background: rgba(255,255,255,0.14); }
+    .about-btn.active { color: white; background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.35); }
     .live-dot {
       width: 7px;
       height: 7px;
@@ -127,7 +147,7 @@
       gap: 0;
     }
     .nav-btn {
-      padding: 10px 16px 11px;
+      padding: 10px 13px 11px;
       font-size: 13px;
       font-weight: 600;
       border: none;
@@ -995,6 +1015,15 @@
     .connection-banner.ok { background: #e6f4ed; color: #065f46; border: 1px solid #a7d4bc; }
     .connection-banner.bad { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
     .connection-banner.unknown { background: var(--c-amber-lt); color: #92400e; border: 1px solid #fde68a; }
+    .conn-pill-wrap { padding: 4px 14px 10px; }
+    .conn-pill {
+      display: inline-flex; align-items: center; gap: 2px;
+      font-size: 12px; font-weight: 600;
+      border-radius: 999px; padding: 4px 12px; border: 1px solid;
+    }
+    .conn-pill.ok  { background: #e6f4ed; color: #065f46; border-color: #a7d4bc; }
+    .conn-pill.bad { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+    .conn-pill.unknown { background: var(--c-amber-lt); color: #92400e; border-color: #fde68a; }
     .active-leg-row {
       display: flex;
       align-items: flex-start;
@@ -1008,6 +1037,51 @@
     .active-leg-time { font-weight: 700; color: var(--c-ink); white-space: nowrap; }
     .active-leg-note { font-size: 11px; color: var(--c-muted); padding: 0 14px 10px; line-height: 1.4; }
     .active-empty { font-size: 13px; color: var(--c-muted); text-align: center; padding: 28px 16px; line-height: 1.6; }
+
+    /* ─── CATCH MY TRAIN ─── */
+    .catch-toolbar {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 10px; margin-bottom: 12px; flex-wrap: wrap;
+    }
+    .catch-train-card {
+      background: var(--c-surface); border-radius: var(--radius-card);
+      border: 1.5px solid var(--c-border); box-shadow: var(--shadow-sm);
+      padding: 12px 14px; margin-bottom: 10px; cursor: pointer;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .catch-train-card:hover { border-color: var(--c-primary-2); }
+    .catch-train-card.past { opacity: 0.7; }
+    .catch-train-header { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .catch-train-time { font-size: 16px; font-weight: 800; color: var(--c-ink); }
+    .catch-train-route { font-size: 13px; font-weight: 700; color: var(--c-primary); }
+    .catch-train-headsign { font-size: 12px; color: var(--c-muted); margin-top: 3px; }
+    .catch-train-meta { font-size: 11px; color: var(--c-muted2); margin-top: 4px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .catch-back-btn {
+      font-size: 13px; font-weight: 600; color: var(--c-primary); background: none;
+      border: none; cursor: pointer; padding: 0 0 2px; font-family: inherit;
+      display: inline-flex; align-items: center; gap: 3px; margin-bottom: 12px;
+    }
+    .catch-train-summary {
+      background: var(--c-surface); border-radius: var(--radius-card);
+      border: 1px solid var(--c-border); box-shadow: var(--shadow-sm);
+      padding: 12px 14px; margin-bottom: 16px;
+    }
+    .catch-conn-section { margin-bottom: 16px; }
+    .catch-conn-title {
+      font-size: 10px; font-weight: 800; text-transform: uppercase;
+      letter-spacing: 0.07em; color: var(--c-muted); margin-bottom: 6px;
+    }
+    .catch-conn-arrive { font-size: 11px; color: var(--c-muted); margin-bottom: 8px; }
+    .catch-conn-card {
+      background: var(--c-surface); border-radius: var(--radius-card);
+      border: 1px solid var(--c-border); box-shadow: var(--shadow-sm);
+      padding: 11px 13px; margin-bottom: 8px;
+      display: flex; align-items: center; gap: 10px; justify-content: space-between;
+    }
+    .catch-conn-info { flex: 1; min-width: 0; }
+    .catch-conn-bus { font-size: 14px; font-weight: 700; color: var(--c-ink); }
+    .catch-conn-time { font-size: 12px; color: var(--c-ink2); margin-top: 2px; }
+    .catch-conn-pill { margin-top: 5px; }
 
     /* ─── STATES ─── */
     .error {
@@ -1231,16 +1305,19 @@
         <span class="brand-name">UW Commute</span>
         <span class="brand-sub">Puget Sound Transit</span>
       </div>
-      <div class="brand-pill">
-        <span class="live-dot"></span>
-        <span class="live-label">LIVE</span>
+      <div class="brand-right">
+        <div class="brand-pill">
+          <span class="live-dot"></span>
+          <span class="live-label">LIVE</span>
+        </div>
+        <button class="about-btn" id="about-header-btn" onclick="showPage('about', this)">About</button>
       </div>
     </div>
     <nav class="nav">
       <button class="nav-btn active" onclick="showPage('planner', this)">Planner</button>
       <button class="nav-btn" onclick="showPage('active', this)">Active</button>
+      <button class="nav-btn" onclick="showPage('catch', this)">Catch</button>
       <button class="nav-btn" onclick="showPage('timetable', this)">Timetable</button>
-      <button class="nav-btn" onclick="showPage('about', this)">About</button>
     </nav>
   </div>
 
@@ -1441,6 +1518,11 @@
     <div id="active-plans-out"><div class="active-empty">No active trips yet. On Planner, tap <strong>Follow trip</strong> on a recommendation card.</div></div>
   </div>
 
+  <!-- ══ CATCH MY TRAIN PAGE ══ -->
+  <div class="page" id="page-catch">
+    <div id="catch-out"><div class="loading">Open this tab to find your train.</div></div>
+  </div>
+
   <!-- ══ TIMETABLE PAGE ══ -->
   <div class="page" id="page-timetable">
     <div class="timings-controls">
@@ -1591,13 +1673,19 @@
   function showPage(id, btn) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('visible'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    const aboutBtn = document.getElementById('about-header-btn');
+    if (aboutBtn) aboutBtn.classList.remove('active');
     document.getElementById('page-' + id).classList.add('visible');
     btn.classList.add('active');
+    if (id !== 'catch') clearCatchTimers();
     if (id === 'timetable' && !timetableLoaded) {
       loadTimetable();
     }
     if (id === 'active') {
       renderActivePlans();
+    }
+    if (id === 'catch') {
+      loadCatchMyTrain();
     }
   }
 
@@ -2143,24 +2231,25 @@
       }
       if (lr && lr.connection && (!lr.error || lr.error === 'rate_limit')) {
         const conn = lr.connection;
-        const cls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
-        banner += `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
+        const cushion = conn.cushion_at_bay_minutes ?? conn.slack_minutes;
+        const walkMins = p.tracking && p.tracking.transfer_walk_mins != null ? p.tracking.transfer_walk_mins : null;
+        if (cushion != null && walkMins != null && conn.ok !== null) {
+          const pillCls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
+          const sign = cushion >= 0 ? '+' : '';
+          const cushionStr = `${sign}${Math.round(cushion * 10) / 10}`;
+          banner += `<div class="conn-pill-wrap"><span class="conn-pill ${pillCls}">⏱ ${cushionStr} min buffer (~${walkMins} min walk)</span></div>`;
+        } else {
+          const cls = conn.ok === true ? 'ok' : conn.ok === false ? 'bad' : 'unknown';
+          banner += `<div class="connection-banner ${cls}">${escapeHtml(conn.summary || '')}</div>`;
+        }
       }
 
       let legsHtml = '';
       const legsOk = lr && lr.legs && Array.isArray(lr.legs) && (!lr.error || lr.error === 'rate_limit');
       if (legsOk) {
-        const legsSorted = lr.legs
-          .map((leg, idx) => ({ leg, idx }))
-          .sort((a, b) => {
-            const ma = a.leg.minutes_until;
-            const mb = b.leg.minutes_until;
-            if (ma != null && mb != null && ma !== mb) return ma - mb;
-            if (ma != null && mb == null) return -1;
-            if (ma == null && mb != null) return 1;
-            return a.idx - b.idx;
-          })
-          .map((x) => x.leg);
+        // Keep legs in trip-sequence order (feeder → Link depart → Link arrive → bus).
+        // The (Xm) countdown on each row already shows what's imminent.
+        const legsSorted = lr.legs;
         legsHtml = legsSorted.map((leg) => {
           const live = leg.is_realtime ? '<span class="badge badge-live">Live</span>' : '<span class="badge badge-sched">Sched</span>';
           const timingExtra = leg.timing_note ? ` · ${escapeHtml(leg.timing_note)}` : '';
@@ -2804,6 +2893,242 @@
     } finally {
       refreshBtn.disabled = false;
       refreshBtn.textContent = '↻ Refresh board';
+    }
+  }
+
+  // ── CATCH MY TRAIN ──
+  let catchTrainsData = null;
+  let catchSelectedIdx = null;
+  let catchRefreshBusy = false;
+  let catchRateLimitTimer = null;
+  let catchAutoRefreshTimer = null;
+  const CATCH_AUTO_REFRESH_MS = 30000;
+  const CATCH_RATE_LIMIT_RETRY_MS = 3000;
+
+  function clearCatchTimers() {
+    if (catchRateLimitTimer != null) { clearTimeout(catchRateLimitTimer); catchRateLimitTimer = null; }
+    if (catchAutoRefreshTimer != null) { clearTimeout(catchAutoRefreshTimer); catchAutoRefreshTimer = null; }
+  }
+
+  function scheduleCatchAutoRefresh() {
+    clearCatchTimers();
+    catchAutoRefreshTimer = window.setTimeout(() => {
+      catchAutoRefreshTimer = null;
+      loadCatchMyTrain(true);
+    }, CATCH_AUTO_REFRESH_MS);
+  }
+
+  async function loadCatchMyTrain(silent = false) {
+    const out = document.getElementById('catch-out');
+    if (!out) return;
+    if (catchRefreshBusy) return;
+    catchRefreshBusy = true;
+    clearCatchTimers();
+
+    // On explicit (non-silent) load: reset selection and show spinner
+    if (!silent) {
+      catchSelectedIdx = null;
+      out.innerHTML = '<div class="loading">Fetching nearby Link trains…</div>';
+    } else {
+      // Silent: just update the refresh button label if visible
+      const btn = out.querySelector('.catch-refresh-btn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Refreshing…'; }
+    }
+
+    try {
+      const resp = await fetch('/api/catch_my_train');
+      const data = await resp.json();
+
+      if (data.error === 'rate_limit') {
+        if (!silent) {
+          out.innerHTML = '<div class="warn" style="margin-bottom:12px">⏱ Rate limited. Retrying in 3 seconds…</div>';
+        } else {
+          const existing = out.querySelector('.catch-rate-warn');
+          if (!existing) {
+            const warn = document.createElement('div');
+            warn.className = 'warn catch-rate-warn';
+            warn.style.cssText = 'margin-bottom:12px;font-size:12px';
+            warn.textContent = '⏱ Rate limited. Retrying in 3 seconds…';
+            out.prepend(warn);
+          }
+        }
+        catchRateLimitTimer = window.setTimeout(() => {
+          catchRateLimitTimer = null;
+          loadCatchMyTrain(silent);
+        }, CATCH_RATE_LIMIT_RETRY_MS);
+        return;
+      }
+
+      if (data.error) {
+        if (!silent) out.innerHTML = `<div class="error">${escapeHtml(String(data.error))}</div>`;
+        scheduleCatchAutoRefresh();
+        return;
+      }
+
+      // Try to keep selected train stable across silent refreshes
+      if (silent && catchSelectedIdx !== null && catchTrainsData) {
+        const prevTrain = catchTrainsData.trains[catchSelectedIdx];
+        if (prevTrain) {
+          const newIdx = (data.trains || []).findIndex(
+            t => t.trip_id === prevTrain.trip_id && t.service_date === prevTrain.service_date
+          );
+          catchTrainsData = data;
+          catchSelectedIdx = newIdx >= 0 ? newIdx : null;
+          if (catchSelectedIdx !== null) {
+            selectCatchTrain(catchSelectedIdx);
+          } else {
+            renderCatchTrains();
+          }
+          scheduleCatchAutoRefresh();
+          return;
+        }
+      }
+
+      catchTrainsData = data;
+      catchSelectedIdx = null;
+      renderCatchTrains();
+      scheduleCatchAutoRefresh();
+    } catch (e) {
+      if (!silent) out.innerHTML = `<div class="error">Could not reach server: ${escapeHtml(String(e))}</div>`;
+      scheduleCatchAutoRefresh();
+    } finally {
+      catchRefreshBusy = false;
+    }
+  }
+
+  function renderCatchTrains() {
+    const out = document.getElementById('catch-out');
+    if (!out || !catchTrainsData) return;
+    catchSelectedIdx = null;
+    const trains = catchTrainsData.trains || [];
+    let html = `
+      <div class="catch-toolbar">
+        <span class="desc">${escapeHtml(catchTrainsData.fetched_at || '')} · Tap the train you're on</span>
+        <button class="refresh catch-refresh-btn" onclick="loadCatchMyTrain()">↻ Refresh</button>
+      </div>`;
+    if (!trains.length) {
+      html += '<div class="active-empty">No Link trains found in the −5 to +15 min window. Try refreshing.</div>';
+      out.innerHTML = html;
+      return;
+    }
+    trains.forEach((train, i) => {
+      const badge = train.is_realtime
+        ? '<span class="badge badge-live">Live</span>'
+        : '<span class="badge badge-sched">Sched</span>';
+      const delayText = train.delay_note ? ` · ${escapeHtml(train.delay_note)}` : '';
+      const minsAbs = Math.abs(train.minutes_until);
+      const minsText = train.minutes_until < 0
+        ? `departed ${minsAbs} min ago`
+        : train.minutes_until === 0 ? 'departing now' : `in ${train.minutes_until} min`;
+      const connCount = train.connections.length;
+      const pastCls = train.minutes_until < -1 ? ' past' : '';
+      html += `
+        <div class="catch-train-card${pastCls}" onclick="selectCatchTrain(${i})">
+          <div class="catch-train-header">
+            <span class="catch-train-time">${escapeHtml(train.depart_u_district)}</span>
+            <span class="catch-train-route">🚆 ${escapeHtml(train.route_label)}</span>
+            ${badge}
+          </div>
+          <div class="catch-train-headsign">${escapeHtml(train.headsign || '')}</div>
+          <div class="catch-train-meta">
+            <span>${minsText}${delayText}</span>
+            <span>${connCount} connection${connCount !== 1 ? 's' : ''} found</span>
+          </div>
+        </div>`;
+    });
+    out.innerHTML = html;
+  }
+
+  function selectCatchTrain(idx) {
+    catchSelectedIdx = idx;
+    const out = document.getElementById('catch-out');
+    if (!out || !catchTrainsData) return;
+    const train = catchTrainsData.trains[idx];
+    if (!train) return;
+
+    const badge = train.is_realtime
+      ? '<span class="badge badge-live">Live</span>'
+      : '<span class="badge badge-sched">Sched</span>';
+    const delayText = train.delay_note ? ` · ${escapeHtml(train.delay_note)}` : '';
+
+    let html = `
+      <div class="catch-toolbar" style="margin-bottom:10px">
+        <button class="catch-back-btn" onclick="renderCatchTrains()">← All trains</button>
+        <button class="refresh catch-refresh-btn" onclick="loadCatchMyTrain()">↻ Refresh</button>
+      </div>
+      <div class="catch-train-summary">
+        <div class="active-plan-title">🚆 ${escapeHtml(train.route_label)} · ${escapeHtml(train.depart_u_district)}</div>
+        <div class="active-plan-meta">${escapeHtml(train.headsign || '')} ${badge}${delayText}</div>
+      </div>`;
+
+    const conns333 = train.connections
+      .map((conn, connIdx) => ({ conn, connIdx }))
+      .filter(({ conn }) => conn.dest === '333');
+    const conns348 = train.connections
+      .map((conn, connIdx) => ({ conn, connIdx }))
+      .filter(({ conn }) => conn.dest === '348');
+
+    function renderConnGroup(title, linkArrives, pairs) {
+      let s = `<div class="catch-conn-section"><div class="catch-conn-title">${title}</div>`;
+      if (!pairs.length) {
+        s += '<div class="active-empty" style="padding:10px 0 4px">No connections found in window.</div>';
+      } else {
+        s += `<div class="catch-conn-arrive">Link arrives ${escapeHtml(linkArrives)}</div>`;
+        pairs.forEach(({ conn, connIdx }) => {
+          const cushion = conn.cushion_min;
+          const sign = cushion >= 0 ? '+' : '';
+          const cushionStr = `${sign}${Math.round(cushion * 10) / 10}`;
+          const pillCls = conn.ok ? 'ok' : 'bad';
+          const busBadge = conn.is_realtime
+            ? '<span class="badge badge-live">Live</span>'
+            : '<span class="badge badge-sched">Sched</span>';
+          const busDelayText = conn.bus_delay_note ? ` · ${escapeHtml(conn.bus_delay_note)}` : '';
+          s += `
+            <div class="catch-conn-card">
+              <div class="catch-conn-info">
+                <div class="catch-conn-bus">${escapeHtml(conn.bus_label)} ${busBadge}</div>
+                <div class="catch-conn-time">Departs ${escapeHtml(conn.bus_departs)}${busDelayText}</div>
+                <div class="catch-conn-pill"><span class="conn-pill ${pillCls}">⏱ ${cushionStr} min buffer (~${conn.walk_min} min walk)</span></div>
+              </div>
+              <button class="card-btn card-btn-accent" onclick="followCatchPlan(${idx}, ${connIdx})">Follow</button>
+            </div>`;
+        });
+      }
+      s += '</div>';
+      return s;
+    }
+
+    const arrive333 = conns333.length ? conns333[0].conn.link_arrives : '—';
+    const arrive348 = conns348.length ? conns348[0].conn.link_arrives : '—';
+    html += renderConnGroup('Bus 333 · Shoreline South/148th', arrive333, conns333);
+    html += renderConnGroup('Bus 348 · Shoreline North/185th', arrive348, conns348);
+    out.innerHTML = html;
+  }
+
+  function followCatchPlan(trainIdx, connIdx) {
+    const train = catchTrainsData && catchTrainsData.trains[trainIdx];
+    const item = train && train.connections[connIdx];
+    if (!item || !item.tracking) { alert('No trip data — try refreshing.'); return; }
+    const tracking = item.tracking;
+    if (!Array.isArray(tracking.legs) || tracking.legs.length === 0) {
+      alert('No trip IDs available to follow.');
+      return;
+    }
+    const sig = trackingSignature(tracking);
+    let plans = readActivePlans().filter(p => trackingSignature(p.tracking) !== sig);
+    const title = `${train.depart_u_district} · ${item.bus_label}`;
+    plans.unshift({
+      id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
+      addedAt: Date.now(),
+      summaryTitle: title,
+      tracking: tracking,
+      lastRefresh: null,
+    });
+    saveActivePlans(plans);
+    const followBtn = document.querySelector(`[onclick="followCatchPlan(${trainIdx}, ${connIdx})"]`);
+    if (followBtn) {
+      followBtn.textContent = '✓ Added';
+      followBtn.disabled = true;
     }
   }
 

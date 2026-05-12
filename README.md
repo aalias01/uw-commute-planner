@@ -43,17 +43,19 @@ For each candidate trip, the planner works backwards from the destination:
 4. For **U-District Station start**, skips steps 2–3 and goes straight to train selection.
 5. Scores results by least wait at the final station, then least extra transfer wait, then earliest departure when tied.
 6. Returns the strongest ranked recommendations first, with Best option and Backup option shown by default, and can expand to show more ranked options plus a separate Earliest departure card when it is meaningfully different.
+7. Short-turn trains (headsign contains "Northgate") are excluded — they don't reach Shoreline and would never make the connection.
 
 The result is not just a route — it's a recommendation for **what to do right now**.
 
 ---
 
-## App tabs
+## App Tabs
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
-- **Active** — follow a specific recommendation (“Follow trip”); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable
+- **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ ±X min buffer (~Y min walk)` pill; legs displayed in trip-sequence order (depart → arrive → bus).
+- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (down to −5 min buffer) — and follow any of them directly to Active. Auto-refreshes every 30 seconds while the tab is open; preserves your selected train across silent background refreshes.
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
-- **About** — product notes; link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
+- **About** — product notes (accessible via a pill button in the header bar, not a nav tab); link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
 
 ---
 
@@ -65,7 +67,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 - Departure filter — **After:** 15 / 30 min after now, or a clock time you can edit and nudge with ±15 min (strict window, no fallback). Optional API field `leave_after=HH:MM` (24-hour, server timezone `America/Los_Angeles`).
 - Start buffer control for adding extra minutes before leaving or boarding
 - Walk and Bus commute modes (Odegaard start only)
-- Include Line 2 toggle
+- Include Line 2 toggle; short-turn Northgate trains filtered from planner results
 - Transfer buffer with reliability labels: Tight / Okay / Comfortable
 - Best option and Backup option by default, with a Show more control for additional ranked options
 - Separate Earliest departure card when it is meaningfully different from the ranked recommendations
@@ -74,7 +76,8 @@ The result is not just a route — it's a recommendation for **what to do right 
 - Saved defaults persisted to localStorage
 - Manual refresh with visible report time
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
-- **Active trips**: follow up to 8 plans in localStorage; reorder with ↑ ↓ on each card; per-plan or bulk refresh against live boards
+- **Active trips**: follow up to 8 plans in localStorage; reorder with ↑ ↓ on each card; per-plan or bulk refresh against live boards; compact transfer buffer pill replaces verbose status text
+- **Catch My Train**: board-style train picker for the current window; shows all viable and near-miss bus connections; one-tap follow without leaving the tab
 - Timetable page with separate departure boards for feeder buses, Link, final buses, and class-bound buses
 - Headsign safety checks with visible warnings, plus Bus 45 dropoff validation
 
@@ -85,7 +88,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 The planner is built around this commute shape:
 
 - **Odegaard Library** or **U-District Station** → train platform
-- **1 Line / 2 Line** toward Shoreline
+- **1 Line / 2 Line** toward Shoreline (Northgate short-turns excluded)
 - **Shoreline South/148th** (Bus 333) or **Shoreline North/185th** (Bus 348 / Train only)
 - Final bus home, or ride ends at the train station for Train only
 
@@ -133,10 +136,11 @@ Open [http://localhost:8000](http://localhost:8000).
 |----------|-------------|
 | `GET /` | Serves the frontend |
 | `GET /api/connections` | Returns live planner suggestions |
+| `GET /api/catch_my_train` | Returns northbound Link trains in the −5 to +15 min window at U District, each with Bus 333 and Bus 348 connection options (including tight/near-miss) and a `tracking` object per connection |
 | `GET /api/timings` | Returns static leg-by-leg timing constants (used by `/static/timings.html`) |
 | `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
-| `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection summary: clock minutes from Link platform arrival to bus departure (`minutes_after_link_arrival`), minus walk yields wait at the bay (`cushion_at_bay_minutes`; `slack_minutes` matches that cushion). Used by the Active tab |
+| `POST /api/track/refresh` | JSON body: tracked legs (`trip_id`, `service_date`, `stop_id`, etc.). Returns refreshed live times per leg and a connection summary: clock minutes from Link platform arrival to bus departure (`minutes_after_link_arrival`), minus walk yields transfer buffer (`cushion_at_bay_minutes`; `slack_minutes` matches that value). Used by the Active tab. |
 
 Each item from **`GET /api/connections`** includes a **`tracking`** object when trip IDs are present (for Follow trip / refresh).
 
@@ -146,12 +150,19 @@ Each item from **`GET /api/connections`** includes a **`tracking`** object when 
 |-----------|--------|---------|
 | `mode` | `1` Walk, `2` Bus | `2` |
 | `stay` | any integer from `1` to `240` | `30` |
-| `leave_after` | optional `HH:MM` (24-hour); used when `window_mode=after` to mean “earliest leave at or after this clock time” (next occurrence in `America/Los_Angeles`) | omitted |
+| `leave_after` | optional `HH:MM` (24-hour); used when `window_mode=after` to mean "earliest leave at or after this clock time" (next occurrence in `America/Los_Angeles`) | omitted |
 | `start_buffer` | any integer from `0` to `60` | `0` |
 | `window_mode` | `within` `after` | `within` |
 | `include_line2` | `true` `false` | `true` |
 | `destination` | `333` `348` `train_north` | `333` |
 | `start` | `odegaard` `u_district_station` | `odegaard` |
+
+**`/api/catch_my_train` parameters:**
+
+| Parameter | Values | Default |
+|-----------|--------|---------|
+| `window_before` | minutes before now to include | `5` |
+| `window_after` | minutes after now to include | `15` |
 
 ---
 
