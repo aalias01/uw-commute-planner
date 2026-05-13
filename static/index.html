@@ -548,6 +548,39 @@
       display: none;
       -webkit-appearance: none;
     }
+
+    /* "Leave after" row: 15 min / 30 min / clock pill on one line (narrow phones). */
+    #stay-row-after {
+      flex-wrap: nowrap;
+      gap: 6px;
+    }
+    #stay-row-after .idle-chip {
+      flex: 0 0 auto;
+      padding: 7px 10px;
+      font-size: 12px;
+    }
+    #stay-row-after .stay-after-time-chip.stay-custom-chip {
+      flex: 1 1 auto;
+      min-width: 0;
+      max-width: 10.5rem;
+      padding: 3px 5px;
+      gap: 2px;
+    }
+    #stay-row-after .stay-after-input-inline {
+      min-width: 0;
+      width: 4.85rem;
+      max-width: 100%;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    #stay-row-after .stay-after-step-btn.buffer-btn {
+      width: 22px;
+      height: 22px;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0;
+    }
+
     .buffer-stepper {
       display: inline-flex;
       align-items: center;
