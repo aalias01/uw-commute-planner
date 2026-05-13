@@ -53,7 +53,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
 - **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ +X.X min to bus (~Y min walk)` pill (raw gap from train platform arrival to bus departure, color-coded green/red against the walk threshold); legs displayed in trip-sequence order (depart → arrive → bus).
-- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. Auto-refreshes every 30 seconds while the tab is open; preserves your selected train across silent background refreshes.
+- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. **Loads once** when you open the tab (and again when you tap **Refresh**); there is **no** automatic 30-second polling.
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
 - **About** — product notes (accessible via a pill button in the header bar, not a nav tab); link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
 
@@ -125,6 +125,14 @@ python app.py
 ```
 
 Open [http://localhost:8000](http://localhost:8000).
+
+**Tests** (no API key or network required):
+
+```bash
+pytest
+```
+
+On GitHub, **Actions** runs the same `pytest` job on pushes to `main` / `master` and on every pull request (see `.github/workflows/ci.yml`).
 
 > **API key:** The app works without one using the shared `TEST` key, but for reliable use you can request a free key via [Sound Transit's Open Transit Data portal](https://www.soundtransit.org/help-contacts/business-information/open-transit-data-otd).
 

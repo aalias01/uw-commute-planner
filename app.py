@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import asyncio
 import httpx
+import logging
 import os
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
@@ -12,6 +13,19 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 import uvicorn
+
+log = logging.getLogger(__name__)
+
+
+def _oba_row_log_kv(row: dict) -> str:
+    """Single-line context for logs when an OBA row has no usable timestamps."""
+    return (
+        f"tripId={row.get('tripId')!r} "
+        f"serviceDate={row.get('serviceDate')!r} "
+        f"routeId={row.get('routeId')!r} "
+        f"routeShortName={row.get('routeShortName')!r}"
+    )
+
 
 # API key — set via environment variable before running:
 #   export OBA_API_KEY=your_key_here
@@ -91,6 +105,12 @@ WALK_333_TO_HOME        = 4    # Walk from Bus 333 stop to apartment
 RIDE_348_TO_HOME        = 5    # Bus 348 ride after boarding
 WALK_348_TO_HOME        = 11   # Walk from Bus 348 stop to apartment
 DRIVE_GARAGE_TO_HOME    = 10   # Drive home after reaching the train garage
+
+# Hide "X min early/late" when |pred − sched| exceeds this (OBA can pair inconsistent fields).
+MAX_REALISTIC_DELAY_NOTE_MINUTES = 30
+
+# Include recent past departures when refreshing followed trips (still on train / missed U-District row).
+TRACK_REFRESH_MINUTES_BEFORE = 90
 
 # ── Target transfer buffer at final station ───────────────────────────────────
 # How many minutes you want to be at the final station before the bus departs.
@@ -209,7 +229,7 @@ class TrackLegSpec(BaseModel):
 
 
 class TrackRefreshBody(BaseModel):
-    legs: list[TrackLegSpec]
+    legs: list[TrackLegSpec] = Field(default_factory=list, max_length=32)
     transfer_walk_mins: int = 0
     is_train_only: bool = False
     final_bus_label: Optional[str] = None
@@ -303,9 +323,17 @@ def by_short_name(arrivals: list, short_name: str) -> list:
 
 
 def depart_time(a: dict) -> datetime:
-    predicted = a.get("predictedDepartureTime", 0)
-    scheduled = a.get("scheduledDepartureTime", 0)
+    predicted = int(a.get("predictedDepartureTime", 0) or 0)
+    scheduled = int(a.get("scheduledDepartureTime", 0) or 0)
     ts = predicted if predicted > 0 else scheduled
+    if ts <= 0:
+        # Rare: row with no departure times; fall back to arrival timestamps for sort/display.
+        pa = int(a.get("predictedArrivalTime", 0) or 0)
+        sa = int(a.get("scheduledArrivalTime", 0) or 0)
+        ts = pa if pa > 0 else sa
+    if ts <= 0:
+        log.warning("oba_depart_time_fallback_now %s", _oba_row_log_kv(a))
+        return datetime.now(tz=SEATTLE)
     return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
 
 
@@ -315,23 +343,36 @@ def find_arrival_row(
     service_date: int,
     route_id: Optional[str],
 ) -> Optional[dict]:
+    """Match trip + serviceDate; prefer route_id when the feed still lists the trip under another route id."""
+    matches: list[dict] = []
     for a in arrivals:
         if a.get("tripId") != trip_id:
             continue
         sd = a.get("serviceDate")
         if sd is None or int(sd) != int(service_date):
             continue
-        if route_id and a.get("routeId") != route_id:
-            continue
-        return a
-    return None
+        matches.append(a)
+    if not matches:
+        return None
+    if route_id:
+        for a in matches:
+            if a.get("routeId") == route_id:
+                return a
+    return matches[0]
 
 
 def platform_arrival_time(a: dict) -> datetime:
     """Predicted or scheduled arrival at a platform (for alighting)."""
-    predicted = a.get("predictedArrivalTime", 0)
-    scheduled = a.get("scheduledArrivalTime", 0)
+    predicted = int(a.get("predictedArrivalTime", 0) or 0)
+    scheduled = int(a.get("scheduledArrivalTime", 0) or 0)
     ts = predicted if predicted > 0 else scheduled
+    if ts <= 0:
+        pd = int(a.get("predictedDepartureTime", 0) or 0)
+        sd = int(a.get("scheduledDepartureTime", 0) or 0)
+        ts = pd if pd > 0 else sd
+    if ts <= 0:
+        log.warning("oba_platform_arrival_time_fallback_now %s", _oba_row_log_kv(a))
+        return datetime.now(tz=SEATTLE)
     return datetime.fromtimestamp(ts / 1000, tz=SEATTLE)
 
 
@@ -344,6 +385,8 @@ def live_vs_schedule_depart_note(a: dict) -> Optional[str]:
     if pred <= 0 or sched <= 0:
         return None
     delta_min = int(round((pred - sched) / 60000.0))
+    if abs(delta_min) > MAX_REALISTIC_DELAY_NOTE_MINUTES:
+        return None
     if delta_min > 0:
         return f"{delta_min} min delay"
     if delta_min < 0:
@@ -360,6 +403,8 @@ def live_vs_schedule_arrival_note(a: dict) -> Optional[str]:
     if pred <= 0 or sched <= 0:
         return None
     delta_min = int(round((pred - sched) / 60000.0))
+    if abs(delta_min) > MAX_REALISTIC_DELAY_NOTE_MINUTES:
+        return None
     if delta_min > 0:
         return f"{delta_min} min delay"
     if delta_min < 0:
@@ -658,7 +703,7 @@ async def find_connections(
     if window_mode not in {"within", "after"}:
         return {"error": f"Unknown window mode {window_mode}"}
     if start_buffer < 0 or start_buffer > 60:
-        return {"error": f"Unknown start buffer {start_buffer}"}
+        return {"error": f"Start buffer must be between 0 and 60 minutes (got {start_buffer})."}
 
     leave_after_clean = (leave_after or "").strip()
     stay_window_response = stay_window
@@ -1160,7 +1205,12 @@ async def refresh_tracked_plan(body: TrackRefreshBody) -> dict:
 
     horizon = 270
     stop_ids = sorted({leg.stop_id for leg in legs_spec})
-    fetched = await asyncio.gather(*[get_arrivals(sid, horizon) for sid in stop_ids])
+    fetched = await asyncio.gather(
+        *[
+            get_arrivals(sid, horizon, minutes_before=TRACK_REFRESH_MINUTES_BEFORE)
+            for sid in stop_ids
+        ]
+    )
     arrivals_by_stop = dict(zip(stop_ids, fetched))
 
     now = datetime.now(SEATTLE)

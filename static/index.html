@@ -1509,7 +1509,7 @@
   <!-- ══ ACTIVE TRIPS PAGE ══ -->
   <div class="page" id="page-active">
     <div class="active-intro">
-      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards from a past <strong>service day</strong> (Seattle date) are removed automatically when this list loads.
+      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards drop when this list loads if the <strong>earliest</strong> OneBusAway <code>service_date</code> on any leg is before today (Seattle), so a May&nbsp;11 train is not kept all May&nbsp;12 just because a connecting bus row used May&nbsp;12’s date. If no leg has a service date, the card is removed after the Seattle calendar day you added it.
     </div>
     <div class="active-toolbar">
       <span class="desc" id="active-summary-count">0 trips followed</span>
@@ -1999,7 +1999,9 @@
     return String(s)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/"/g, '&quot;');
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/`/g, '&#96;');
   }
 
   /** YYYYMMDD as integer, America/Los_Angeles (matches OBA serviceDate calendar). */
@@ -2017,6 +2019,8 @@
     return parseInt(`${by.year}${by.month}${by.day}`, 10);
   }
 
+  /* Active-tab prune rules: keep in sync with active_plan_prune.py (pytest). */
+
   /** Latest service_date across tracking legs; null if none. */
   function activePlanMaxServiceDate(plan) {
     const legs = plan && plan.tracking && Array.isArray(plan.tracking.legs) ? plan.tracking.legs : [];
@@ -2031,10 +2035,44 @@
     return max;
   }
 
+  /** Earliest service_date across legs (train often May 11 while last bus row is May 12). */
+  function activePlanMinServiceDate(plan) {
+    const legs = plan && plan.tracking && Array.isArray(plan.tracking.legs) ? plan.tracking.legs : [];
+    let min = null;
+    for (const leg of legs) {
+      const sd = leg.service_date;
+      if (sd == null || sd === '') continue;
+      const n = typeof sd === 'string' ? parseInt(sd, 10) : Number(sd);
+      if (!Number.isFinite(n)) continue;
+      if (min === null || n < min) min = n;
+    }
+    return min;
+  }
+
+  function getSeattleDateIntFromMs(ms) {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(new Date(ms));
+    const by = {};
+    parts.forEach((p) => {
+      if (p.type !== 'literal') by[p.type] = p.value;
+    });
+    return parseInt(`${by.year}${by.month}${by.day}`, 10);
+  }
+
   function isActivePlanPastServiceDay(plan, todayYyyymmdd) {
+    const minSd = activePlanMinServiceDate(plan);
     const maxSd = activePlanMaxServiceDate(plan);
-    if (maxSd == null) return false;
-    return maxSd < todayYyyymmdd;
+    if (minSd != null && minSd < todayYyyymmdd) return true;
+    if (minSd == null && maxSd != null && maxSd < todayYyyymmdd) return true;
+    if (minSd == null && maxSd == null && plan.addedAt != null) {
+      const addD = getSeattleDateIntFromMs(plan.addedAt);
+      if (Number.isFinite(addD) && addD < todayYyyymmdd) return true;
+    }
+    return false;
   }
 
   function readActivePlans() {
@@ -2120,7 +2158,20 @@
         final_bus_label: tracking.final_bus_label ?? null,
       }),
     });
-    return res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      return { error: 'Invalid response from server (not JSON).' };
+    }
+    if (!res.ok) {
+      if (data && data.detail !== undefined && data.detail !== null) {
+        const det = data.detail;
+        return { error: typeof det === 'string' ? det : JSON.stringify(det) };
+      }
+      return { error: (data && data.error) || `Request failed (${res.status})` };
+    }
+    return data;
   }
 
   async function refreshActivePlan(id) {
@@ -2336,8 +2387,8 @@
         ? (index === 1 ? 'Backup option' : `More option ${index}`)
         : 'Best option';
     const leaveLabel  = c.primary_action_label || (startPoint === 'u_district_station' ? 'Head to platform' : 'Leave Odegaard Library');
-    const destLabel   = c.destination_label || DESTINATION_LABELS[destination];
-    const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${w}</div>`).join('');
+    const destLabel   = escapeHtml(String(c.destination_label || DESTINATION_LABELS[destination] || ''));
+    const warningHtml = (c.warnings || []).map(w => `<div class="route-warning">⚠️ ${escapeHtml(String(w))}</div>`).join('');
     const startBufferText = `<div class="recommendation-note">Start buffer: ${c.start_buffer_mins ?? 0} min before ${c.start === 'u_district_station' ? 'heading to the platform at U-District Station' : 'leaving from Odegaard Library'}.</div>`;
     const comparisonText = getBestOptionDeltaText(c);
     const bestReasonText = c.recommendation_type === 'best' ? getBestOptionReasonText(c) : '';
@@ -2346,8 +2397,8 @@
     // build steps HTML
     let stepsHtml = '<ul class="step-list">';
     c.steps.forEach(s => {
-      const depStr = s.depart || '';
-      const arrStr = s.arrive || '';
+      const depStr = escapeHtml(String(s.depart || ''));
+      const arrStr = escapeHtml(String(s.arrive || ''));
       const depChip = s.depart_timing_note
         ? ` <span class="timing-chip">${escapeHtml(s.depart_timing_note)}</span>`
         : '';
@@ -2365,7 +2416,7 @@
         <li class="step-item">
           <div class="step-dot ${DOT_CLASS[s.icon]}">${ICONS[s.icon]}</div>
           <div class="step-content">
-            <div class="step-label-text">${s.label}</div>
+            <div class="step-label-text">${escapeHtml(String(s.label ?? ''))}</div>
             ${timeParts ? `<div class="step-times">${timeParts}</div>` : ''}
           </div>
         </li>`;
@@ -2390,18 +2441,18 @@
           <div class="leave-hero">
             <div class="leave-lbl">${leaveLabel}</div>
             <div class="leave-time-row">
-              <div class="leave-time">${c.leave_odegaard}</div>
+              <div class="leave-time">${escapeHtml(String(c.leave_odegaard ?? ''))}</div>
             </div>
           </div>
           <div class="countdown${urgent ? ' now' : ''}">${countText}</div>
           <div class="trip-meta">${c.total_mins} min total · to ${destLabel}</div>
-          ${bestReasonText ? `<div class="hint-text" id="best-option-hint-${sourceIndex}">${bestReasonText}</div>` : ''}
-          ${comparisonText ? `<div class="recommendation-note">${comparisonText}</div>` : ''}
+          ${bestReasonText ? `<div class="hint-text" id="best-option-hint-${sourceIndex}">${escapeHtml(bestReasonText)}</div>` : ''}
+          ${comparisonText ? `<div class="recommendation-note">${escapeHtml(comparisonText)}</div>` : ''}
           ${startBufferText}
-          ${c.recommendation_note ? `<div class="recommendation-note">${c.recommendation_note}</div>` : ''}
+          ${c.recommendation_note ? `<div class="recommendation-note">${escapeHtml(String(c.recommendation_note))}</div>` : ''}
           ${warningHtml}
-          ${cushionText ? `<div class="cushion-note${cushionClass}">${cushionText}</div>` : ''}
-          ${c.walk_hint ? `<div class="walk-hint">💡 ${c.walk_hint}</div>` : ''}
+          ${cushionText ? `<div class="cushion-note${cushionClass}">${escapeHtml(cushionText)}</div>` : ''}
+          ${c.walk_hint ? `<div class="walk-hint">💡 ${escapeHtml(String(c.walk_hint))}</div>` : ''}
           ${stepsHtml}
         </div>
         <div class="card-footer">
@@ -2436,7 +2487,7 @@
 
     let html = '';
     if (currentOutOfWindowNote) {
-      html += `<div class="warn" style="margin-bottom:12px">⚠️ ${currentOutOfWindowNote}</div>`;
+      html += `<div class="warn" style="margin-bottom:12px">⚠️ ${escapeHtml(String(currentOutOfWindowNote))}</div>`;
     }
     html += visibleRanked.map((item, i) => renderCard(item.c, i === 0, i, item.sourceIndex)).join('');
 
@@ -2739,7 +2790,7 @@
         return;
       }
       if (d.error) {
-        out.innerHTML = `<div class="error">${d.error}</div>`;
+        out.innerHTML = `<div class="error">${escapeHtml(String(d.error))}</div>`;
         reportTime.textContent = 'Report time: unavailable';
         showMoreRecommendations = false;
         updatePlannerDescription();
@@ -2873,7 +2924,7 @@
         return;
       }
       if (d.error) {
-        out.innerHTML = `<div class="error">${d.error}</div>`;
+        out.innerHTML = `<div class="error">${escapeHtml(String(d.error))}</div>`;
         reportTime.textContent = 'Board time: unavailable';
         return;
       }
@@ -2901,21 +2952,10 @@
   let catchSelectedIdx = null;
   let catchRefreshBusy = false;
   let catchRateLimitTimer = null;
-  let catchAutoRefreshTimer = null;
-  const CATCH_AUTO_REFRESH_MS = 30000;
   const CATCH_RATE_LIMIT_RETRY_MS = 3000;
 
   function clearCatchTimers() {
     if (catchRateLimitTimer != null) { clearTimeout(catchRateLimitTimer); catchRateLimitTimer = null; }
-    if (catchAutoRefreshTimer != null) { clearTimeout(catchAutoRefreshTimer); catchAutoRefreshTimer = null; }
-  }
-
-  function scheduleCatchAutoRefresh() {
-    clearCatchTimers();
-    catchAutoRefreshTimer = window.setTimeout(() => {
-      catchAutoRefreshTimer = null;
-      loadCatchMyTrain(true);
-    }, CATCH_AUTO_REFRESH_MS);
   }
 
   async function loadCatchMyTrain(silent = false) {
@@ -2961,7 +3001,6 @@
 
       if (data.error) {
         if (!silent) out.innerHTML = `<div class="error">${escapeHtml(String(data.error))}</div>`;
-        scheduleCatchAutoRefresh();
         return;
       }
 
@@ -2979,7 +3018,6 @@
           } else {
             renderCatchTrains();
           }
-          scheduleCatchAutoRefresh();
           return;
         }
       }
@@ -2987,10 +3025,8 @@
       catchTrainsData = data;
       catchSelectedIdx = null;
       renderCatchTrains();
-      scheduleCatchAutoRefresh();
     } catch (e) {
       if (!silent) out.innerHTML = `<div class="error">Could not reach server: ${escapeHtml(String(e))}</div>`;
-      scheduleCatchAutoRefresh();
     } finally {
       catchRefreshBusy = false;
     }
