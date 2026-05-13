@@ -38,6 +38,7 @@ def active_plan_should_prune(
     local calendar to ``today_yyyymmdd``; if the follow day is before today, the plan
     is pruned even when every leg ``service_date`` equals today (OBA midnight boundary).
     ``today_yyyymmdd``: Seattle ``YYYYMMDD`` for "now" (inject in tests).
+    """
     values: list[int] = []
     for sd in leg_service_dates:
         if sd is None or sd == "":
