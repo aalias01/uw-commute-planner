@@ -18,7 +18,14 @@ def test_prune_when_min_leg_before_today():
 
 
 def test_keep_when_all_legs_same_service_day_as_today():
-    assert active_plan_should_prune([20260512, 20260512], None, 20260512) is False
+    ms_noon_may12 = int(datetime(2026, 5, 12, 12, 0, 0, tzinfo=_SEATTLE).timestamp() * 1000)
+    assert active_plan_should_prune([20260512, 20260512], ms_noon_may12, 20260512) is False
+
+
+def test_prune_when_oba_service_dates_all_today_but_followed_yesterday():
+    """OBA can stamp every leg as the next service day; still drop after follow calendar day."""
+    ms_may_11_afternoon = int(datetime(2026, 5, 11, 12, 28, 21, tzinfo=_SEATTLE).timestamp() * 1000)
+    assert active_plan_should_prune([20260512, 20260512, 20260512], ms_may_11_afternoon, 20260512) is True
 
 
 def test_prune_when_only_max_before_today_and_no_min_ambiguity():

@@ -2,8 +2,12 @@
 Active-tab card pruning vs Seattle local calendar.
 
 Must stay in sync with ``static/index.html``:
-``activePlanMinServiceDate`` / ``activePlanMaxServiceDate`` /
+``legServiceDate`` / ``activePlanMinServiceDate`` / ``activePlanMaxServiceDate`` /
 ``getSeattleDateIntFromMs`` / ``isActivePlanPastServiceDay`` / ``readActivePlans``.
+
+Prune when the earliest leg ``service_date`` is before Seattle today, **or** when
+``addedAt`` (Seattle calendar) is before today — so trips followed yesterday drop
+even if every leg still carries today's OBA ``service_date``.
 """
 
 from __future__ import annotations
@@ -30,9 +34,10 @@ def active_plan_should_prune(
     Return True if a followed plan should be removed when the Active list loads.
 
     ``leg_service_dates``: ``service_date`` from each tracking leg (ints or numeric strings).
-    ``added_at_ms``: plan ``addedAt`` from localStorage (epoch ms).
+    ``added_at_ms``: plan ``addedAt`` from localStorage (epoch ms). Compared in Seattle
+    local calendar to ``today_yyyymmdd``; if the follow day is before today, the plan
+    is pruned even when every leg ``service_date`` equals today (OBA midnight boundary).
     ``today_yyyymmdd``: Seattle ``YYYYMMDD`` for "now" (inject in tests).
-    """
     values: list[int] = []
     for sd in leg_service_dates:
         if sd is None or sd == "":
@@ -52,7 +57,7 @@ def active_plan_should_prune(
         return True
     if min_sd is None and max_sd is not None and max_sd < today_yyyymmdd:
         return True
-    if min_sd is None and max_sd is None and added_at_ms is not None:
+    if added_at_ms is not None:
         add_d = seattle_yyyymmdd_from_ms(added_at_ms)
         if add_d < today_yyyymmdd:
             return True

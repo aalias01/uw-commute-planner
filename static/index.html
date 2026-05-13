@@ -1509,7 +1509,7 @@
   <!-- ══ ACTIVE TRIPS PAGE ══ -->
   <div class="page" id="page-active">
     <div class="active-intro">
-      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards drop when this list loads if the <strong>earliest</strong> OneBusAway <code>service_date</code> on any leg is before today (Seattle), so a May&nbsp;11 train is not kept all May&nbsp;12 just because a connecting bus row used May&nbsp;12’s date. If no leg has a service date, the card is removed after the Seattle calendar day you added it.
+      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards drop when this list loads if the <strong>earliest</strong> leg <code>service_date</code> is before today (Seattle) <em>or</em> the trip was <strong>followed</strong> on an earlier Seattle calendar day (so a May&nbsp;11 follow does not stay through May&nbsp;12 just because OBA stamped every leg as May&nbsp;12). If no leg has a service date, only the follow-day rule applies.
     </div>
     <div class="active-toolbar">
       <span class="desc" id="active-summary-count">0 trips followed</span>
@@ -2021,12 +2021,19 @@
 
   /* Active-tab prune rules: keep in sync with active_plan_prune.py (pytest). */
 
+  /** OBA service calendar day on a leg (snake_case from API; tolerate camelCase in old localStorage). */
+  function legServiceDate(leg) {
+    if (!leg) return undefined;
+    const v = leg.service_date != null && leg.service_date !== '' ? leg.service_date : leg.serviceDate;
+    return v;
+  }
+
   /** Latest service_date across tracking legs; null if none. */
   function activePlanMaxServiceDate(plan) {
     const legs = plan && plan.tracking && Array.isArray(plan.tracking.legs) ? plan.tracking.legs : [];
     let max = null;
     for (const leg of legs) {
-      const sd = leg.service_date;
+      const sd = legServiceDate(leg);
       if (sd == null || sd === '') continue;
       const n = typeof sd === 'string' ? parseInt(sd, 10) : Number(sd);
       if (!Number.isFinite(n)) continue;
@@ -2040,7 +2047,7 @@
     const legs = plan && plan.tracking && Array.isArray(plan.tracking.legs) ? plan.tracking.legs : [];
     let min = null;
     for (const leg of legs) {
-      const sd = leg.service_date;
+      const sd = legServiceDate(leg);
       if (sd == null || sd === '') continue;
       const n = typeof sd === 'string' ? parseInt(sd, 10) : Number(sd);
       if (!Number.isFinite(n)) continue;
@@ -2068,7 +2075,7 @@
     const maxSd = activePlanMaxServiceDate(plan);
     if (minSd != null && minSd < todayYyyymmdd) return true;
     if (minSd == null && maxSd != null && maxSd < todayYyyymmdd) return true;
-    if (minSd == null && maxSd == null && plan.addedAt != null) {
+    if (plan.addedAt != null) {
       const addD = getSeattleDateIntFromMs(plan.addedAt);
       if (Number.isFinite(addD) && addD < todayYyyymmdd) return true;
     }
@@ -2102,7 +2109,7 @@
 
   function trackingSignature(tr) {
     if (!tr || !Array.isArray(tr.legs)) return '';
-    return tr.legs.map((l) => `${l.trip_id}:${l.service_date}:${l.role}`).sort().join('|');
+    return tr.legs.map((l) => `${l.trip_id}:${legServiceDate(l)}:${l.role}`).sort().join('|');
   }
 
   function followPlan(sourceIndex) {
@@ -3169,6 +3176,15 @@
   }
 
   // ── INIT ──
+  /** When Active is showing, re-read localStorage on resume so past-day cards prune after midnight without a manual refresh. */
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    const active = document.getElementById('page-active');
+    if (active && active.classList.contains('visible')) {
+      renderActivePlans();
+    }
+  });
+
   applySavedDefaultSetup();
   loadLine2Preference();
   loadDestinationPreference();
