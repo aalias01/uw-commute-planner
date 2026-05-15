@@ -53,7 +53,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
 - **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ +X.X min to bus (~Y min walk)` pill (raw gap from train platform arrival to bus departure, color-coded green/red against the walk threshold); legs displayed in trip-sequence order (depart → arrive → bus). **Stale cards** drop when the list is read: earliest leg `service_date` before Seattle today, **or** the trip was followed on an **earlier Seattle calendar day** (so OBA stamping every leg as “today” does not keep yesterday’s follow forever); switching back to the tab after it was in the background re-runs that prune.
-- **Catch** — pick the Link train you're already on from a live window of departures (−5 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. **Loads once** when you open the tab (and again when you tap **Refresh**); there is **no** automatic 30-second polling.
+- **Catch** — pick the Link train you're already on from a live window of departures (−10 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. **Loads once** when you open the tab (and again when you tap **Refresh**); there is **no** automatic 30-second polling.
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
 - **About** — product notes (accessible via a pill button in the header bar, not a nav tab); link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
 
@@ -145,7 +145,7 @@ On GitHub, **Actions** runs the same `pytest` job on pushes to `main` / `master`
 |----------|-------------|
 | `GET /` | Serves the frontend |
 | `GET /api/connections` | Returns live planner suggestions |
-| `GET /api/catch_my_train` | Returns northbound Link trains in the −5 to +15 min window at U District, each with Bus 333 and Bus 348 connection options (including tight/near-miss) and a `tracking` object per connection |
+| `GET /api/catch_my_train` | Returns northbound Link trains in the −10 to +15 min window at U District, each with Bus 333 and Bus 348 connection options (including tight/near-miss) and a `tracking` object per connection |
 | `GET /api/timings` | Returns static leg-by-leg timing constants (used by `/static/timings.html`) |
 | `GET /api/timetable` | Returns live departure-board data for the Timetable page |
 | `GET /api/modes` | Returns available commute modes |
@@ -170,7 +170,7 @@ Each item from **`GET /api/connections`** includes a **`tracking`** object when 
 
 | Parameter | Values | Default |
 |-----------|--------|---------|
-| `window_before` | minutes before now to include | `5` |
+| `window_before` | minutes before now to include | `10` |
 | `window_after` | minutes after now to include | `15` |
 
 ---

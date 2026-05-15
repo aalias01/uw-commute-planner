@@ -1307,7 +1307,7 @@ async def post_track_refresh(body: TrackRefreshBody):
 
 
 @app.get("/api/catch_my_train")
-async def get_catch_my_train(window_before: int = 5, window_after: int = 15):
+async def get_catch_my_train(window_before: int = 10, window_after: int = 15):
     """
     Returns northbound Link trains departing U District in [now−window_before, now+window_after]
     with Bus 333 and Bus 348 connection options (including tight/near-miss ones).
