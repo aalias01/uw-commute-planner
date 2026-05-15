@@ -1523,12 +1523,12 @@
     <!-- Toolbar -->
     <div class="refresh-bar">
       <span class="desc" id="desc"></span>
-      <button class="refresh" id="refresh-btn" onclick="load()">↻ Refresh</button>
+      <button class="refresh" id="refresh-btn" onclick="load()">↻ Update plans</button>
     </div>
     <div class="report-time" id="report-time">Report time: —</div>
 
     <!-- Results -->
-    <div id="out"><div class="loading">Press Refresh to load latest departures.</div></div>
+    <div id="out"><div class="active-empty planner-prompt">Tap <strong>Update plans</strong> to load recommendations (nothing loads until you tap the button).</div></div>
 
     <!-- Snapshots -->
     <div class="snapshot-panel">
@@ -1542,7 +1542,7 @@
   <!-- ══ ACTIVE TRIPS PAGE ══ -->
   <div class="page" id="page-active">
     <div class="active-intro">
-      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards drop when this list loads if the <strong>earliest</strong> leg <code>service_date</code> is before today (Seattle) <em>or</em> the trip was <strong>followed</strong> on an earlier Seattle calendar day (so a May&nbsp;11 follow does not stay through May&nbsp;12 just because OBA stamped every leg as May&nbsp;12). If no leg has a service date, only the follow-day rule applies.
+      Tap <strong>Follow trip</strong> on a plan in the <strong>Planner</strong> tab to save that trip here (up to 8). Open <strong>Active</strong> and hit refresh anytime to pull the latest predicted times from OneBusAway — so you can see if a delay or an earlier run changed your connection before you reach the transfer. Use <strong>↑</strong> / <strong>↓</strong> on a card to move it up or down in the list. Cards from a previous Seattle calendar day are removed automatically when this list loads (by the day you followed the trip, not the clock time on the card).
     </div>
     <div class="active-toolbar">
       <span class="desc" id="active-summary-count">0 trips followed</span>
@@ -1665,9 +1665,6 @@
   };
   let plannerRetryTimer = null;
   let timetableRetryTimer = null;
-  /** After settings change, wait this long (debounced) before auto-calling load(); then normal load + 3s rate-limit retries apply. */
-  const SETTINGS_AUTO_REFRESH_MS = 5000;
-  let plannerSettingsDebounceTimer = null;
   let startPoint = 'odegaard';
   const DEFAULT_SETUP_STORAGE_KEY = 'uw-commute-planner-default-setup';
   const SNAPSHOT_STORAGE_KEY = 'uw-commute-planner-snapshots';
@@ -1940,26 +1937,19 @@
     updateStayWithinButtons();
     updateAfterDelayControls();
   }
-  function markPlannerDirty(message = 'Settings changed. Auto-refresh in 5 seconds…') {
+  function markPlannerDirty(message = 'Settings changed — tap <strong>Update plans</strong> when ready.') {
     activeLoadId++;
     currentConnections = [];
     currentOutOfWindowNote = null;
     currentReportTimeLabel = '—';
+    hasLoadedConnections = false;
     showMoreRecommendations = false;
     if (plannerRetryTimer) {
       clearTimeout(plannerRetryTimer);
       plannerRetryTimer = null;
     }
-    if (plannerSettingsDebounceTimer) {
-      clearTimeout(plannerSettingsDebounceTimer);
-      plannerSettingsDebounceTimer = null;
-    }
     document.getElementById('report-time').textContent = 'Report time: —';
-    document.getElementById('out').innerHTML = `<div class="loading">${message}</div>`;
-    plannerSettingsDebounceTimer = window.setTimeout(() => {
-      plannerSettingsDebounceTimer = null;
-      load();
-    }, SETTINGS_AUTO_REFRESH_MS);
+    document.getElementById('out').innerHTML = `<div class="active-empty planner-prompt">${message}</div>`;
   }
   function saveCurrentAsDefault() {
     const setup = {
@@ -2145,6 +2135,15 @@
     return tr.legs.map((l) => `${l.trip_id}:${legServiceDate(l)}:${l.role}`).sort().join('|');
   }
 
+  /** Active card title: anchor on the trip (bus or Link), not leave_odegaard (includes start buffer). */
+  function activePlanTitleFromPlanner(c, destLbl) {
+    const steps = (c && c.steps) || [];
+    const busStep = [...steps].reverse().find((s) => s.icon === 'bus' && s.depart);
+    const railStep = steps.find((s) => s.icon === 'rail' && s.depart);
+    const anchor = busStep?.depart || railStep?.depart || c?.leave_odegaard || 'Plan';
+    return `${anchor} · ${destLbl}`;
+  }
+
   function followPlan(sourceIndex) {
     const c = currentConnections[sourceIndex];
     const tr = c && c.tracking;
@@ -2155,7 +2154,7 @@
     const sig = trackingSignature(tr);
     let plans = readActivePlans().filter((p) => trackingSignature(p.tracking) !== sig);
     const destLbl = DESTINATION_LABELS[tr.destination] || c.destination_label || '';
-    const title = `${c.leave_odegaard || 'Plan'} · ${destLbl}`;
+    const title = activePlanTitleFromPlanner(c, destLbl);
     plans.unshift({
       id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       addedAt: Date.now(),
@@ -2780,10 +2779,6 @@
   }
 
   async function load() {
-    if (plannerSettingsDebounceTimer) {
-      clearTimeout(plannerSettingsDebounceTimer);
-      plannerSettingsDebounceTimer = null;
-    }
     const out        = document.getElementById('out');
     const refreshBtn = document.getElementById('refresh-btn');
     const reportTime = document.getElementById('report-time');
@@ -2859,7 +2854,7 @@
     } finally {
       if (loadId === activeLoadId) {
         refreshBtn.disabled = false;
-        refreshBtn.textContent = '↻ Refresh';
+        refreshBtn.textContent = '↻ Update plans';
       }
     }
   }
@@ -3231,7 +3226,6 @@
   updateTimetableTabButtons();
   initModes().then(() => {
     updatePlannerDescription();
-    load();
   });
 </script>
 </body>

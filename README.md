@@ -52,7 +52,7 @@ The result is not just a route — it's a recommendation for **what to do right 
 ## App Tabs
 
 - **Planner** — live recommendations based on current departures, with transfer buffer, reliability labels, and fallback behavior
-- **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ +X.X min to bus (~Y min walk)` pill (raw gap from train platform arrival to bus departure, color-coded green/red against the walk threshold); legs displayed in trip-sequence order (depart → arrive → bus). **Stale cards** drop when the list is read: earliest leg `service_date` before Seattle today, **or** the trip was followed on an **earlier Seattle calendar day** (so OBA stamping every leg as “today” does not keep yesterday’s follow forever); switching back to the tab after it was in the background re-runs that prune.
+- **Active** — follow a specific recommendation ("Follow trip"); stored locally, then refresh anytime to re-fetch OneBusAway predictions for the same train/bus trip IDs and see whether the Shoreline transfer still looks viable. Transfer status shown as a compact `⏱ +X.X min to bus (~Y min walk)` pill (raw gap from train platform arrival to bus departure, color-coded green/red against the walk threshold); legs displayed in trip-sequence order (depart → arrive → bus). **Stale cards** drop when the list is read if the trip was followed on an **earlier Seattle calendar day**; switching back to the tab after it was in the background re-runs that prune.
 - **Catch** — pick the Link train you're already on from a live window of departures (−10 to +15 min), then see Bus 333 and Bus 348 connection options for that specific train — including tight or near-miss options (gap down to walk − 5 min) — and follow any of them directly to Active. **Loads once** when you open the tab (and again when you tap **Refresh**); there is **no** automatic 30-second polling.
 - **Timetable** — live departure boards for feeder buses, Link, final buses, and class-bound buses, sorted by soonest departure
 - **About** — product notes (accessible via a pill button in the header bar, not a nav tab); link to **Reference timing** page (`/static/timings.html`) for static leg assumptions from `GET /api/timings`
@@ -74,7 +74,8 @@ The result is not just a route — it's a recommendation for **what to do right 
 - Step-by-step visual timeline on each card with live vs scheduled badge
 - Inline help hints for start buffer, leave window controls, and why the best option was chosen
 - Saved defaults persisted to localStorage
-- Manual refresh with visible report time
+- Planner loads only when you tap **Update plans** (no API call on app open or when changing settings)
+- Manual refresh with visible report time on Planner, Active, Catch, and Timetable
 - Local browser snapshots with 24-hour expiry (up to 6 saved)
 - **Active trips**: follow up to 8 plans in localStorage; reorder with ↑ ↓ on each card; per-plan or bulk refresh against live boards; compact transfer buffer pill replaces verbose status text; **auto-remove** plans whose service day is past (see `active_plan_prune.py` + tests — keep in sync with `static/index.html`).
 - **Catch My Train**: board-style train picker for the current window; shows all viable and near-miss bus connections; one-tap follow without leaving the tab
