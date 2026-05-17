@@ -2135,13 +2135,19 @@
     return tr.legs.map((l) => `${l.trip_id}:${legServiceDate(l)}:${l.role}`).sort().join('|');
   }
 
-  /** Active card title: anchor on the trip (bus or Link), not leave_odegaard (includes start buffer). */
-  function activePlanTitleFromPlanner(c, destLbl) {
-    const steps = (c && c.steps) || [];
-    const busStep = [...steps].reverse().find((s) => s.icon === 'bus' && s.depart);
-    const railStep = steps.find((s) => s.icon === 'rail' && s.depart);
-    const anchor = busStep?.depart || railStep?.depart || c?.leave_odegaard || 'Plan';
-    return `${anchor} · ${destLbl}`;
+  /** Leave time for Active header: same as Planner when buffer is 0; else drop buffer padding only. */
+  function plannerLeaveTimeForActive(c) {
+    const buf = Number(c?.start_buffer_mins) || 0;
+    const ts = c?.leave_sort_ts;
+    if (buf > 0 && ts != null && Number.isFinite(Number(ts))) {
+      const d = new Date((Number(ts) + buf * 60) * 1000);
+      return d.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        timeZone: 'America/Los_Angeles',
+      });
+    }
+    return c?.leave_odegaard || 'Plan';
   }
 
   function followPlan(sourceIndex) {
@@ -2154,7 +2160,7 @@
     const sig = trackingSignature(tr);
     let plans = readActivePlans().filter((p) => trackingSignature(p.tracking) !== sig);
     const destLbl = DESTINATION_LABELS[tr.destination] || c.destination_label || '';
-    const title = activePlanTitleFromPlanner(c, destLbl);
+    const title = `${plannerLeaveTimeForActive(c)} · ${destLbl}`;
     plans.unshift({
       id: `ap_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`,
       addedAt: Date.now(),
