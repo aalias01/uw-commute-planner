@@ -56,6 +56,12 @@ def is_link_thru_train(train: dict) -> bool:
     return not any(s in headsign for s in LINK_SHORT_TURN_HEADSIGNS)
 
 
+def link_step_label(train: dict, station_label: str) -> str:
+    """Planner rail leg label: line name → platform where you alight (matches arrive time below)."""
+    line = "1 Line" if train.get("routeId") == ROUTES["1_line"] else "2 Line"
+    return f"{line} → {station_label}"
+
+
 # Route IDs — verified via OBA API
 ROUTES = {
     "1_line":  "40_100479",  # Sound Transit 1 Line
@@ -852,7 +858,7 @@ async def find_connections(
                         {"icon": "walk", "label": "Walk to U-District Station platform",
                          "depart": fmt(leave_station), "arrive": fmt(train_departs),
                          "wait_after": None},
-                        {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
+                        {"icon": "rail", "label": link_step_label(train, final_cfg["station_label"]),
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
                          "depart_timing_note": live_vs_schedule_depart_note(train),
                          "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
@@ -930,7 +936,7 @@ async def find_connections(
                         {"icon": "walk", "label": "Walk to U-District Station platform",
                          "depart": fmt(leave), "arrive": fmt(train_departs),
                          "wait_after": None},
-                        {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
+                        {"icon": "rail", "label": link_step_label(train, final_cfg["station_label"]),
                          "depart": fmt(train_departs), "arrive": fmt(arrive_shoreline),
                          "depart_timing_note": live_vs_schedule_depart_note(train),
                          "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
@@ -1046,7 +1052,7 @@ async def find_connections(
                         {"icon": "walk", "label": "Walk to 1 Line platform",
                          "depart": fmt(pick["arrive_udist"]), "arrive": fmt(pick["arrive_1line"]),
                          "wait_after": max(0, int((train_departs - pick["arrive_1line"]).total_seconds() / 60))},
-                        {"icon": "rail", "label": f"{'1 Line' if train in trains_1line else '2 Line'} → Lynnwood",
+                        {"icon": "rail", "label": link_step_label(train, final_cfg["station_label"]),
                          "depart": fmt(train_departs),       "arrive": fmt(arrive_shoreline),
                          "depart_timing_note": live_vs_schedule_depart_note(train),
                          "arrive_timing_note": live_vs_schedule_arrival_note(exit_row_match)
